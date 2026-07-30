@@ -66,6 +66,8 @@ def test_dashboard_returns_full_envelope(
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert set(body) == {
+        "authentication",
+        "data_source",
         "market",
         "recommendation",
         "no_trade",
@@ -75,6 +77,7 @@ def test_dashboard_returns_full_envelope(
         "option_chain",
         "engine",
     }
+    assert body["authentication"] in ("CONNECTED", "NOT_AUTHENTICATED")
 
 
 def test_dashboard_matches_response_schema(

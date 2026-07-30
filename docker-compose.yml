@@ -20,15 +20,21 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       NATS_SERVERS: nats://nats:4222
-      # Options Intelligence engine. Runs on the deterministic simulator unless
-      # Fyers credentials are supplied via the environment.
+      # Options Intelligence engine. Connects once a Fyers session exists
+      # (browser login at /api/v1/fyers/login); waits otherwise. Set
+      # FYERS_USE_SIMULATOR=true for deterministic simulated data instead.
       OPTIONS_ENGINE_ENABLED: ${OPTIONS_ENGINE_ENABLED:-false}
+      FYERS_USE_SIMULATOR: ${FYERS_USE_SIMULATOR:-false}
       FYERS_CLIENT_ID: ${FYERS_CLIENT_ID:-}
       FYERS_SECRET_KEY: ${FYERS_SECRET_KEY:-}
-      FYERS_ACCESS_TOKEN: ${FYERS_ACCESS_TOKEN:-}
+      FYERS_REDIRECT_URI: ${FYERS_REDIRECT_URI:-}
       ENGINE_POLL_INTERVAL_SECONDS: ${ENGINE_POLL_INTERVAL_SECONDS:-15}
     ports:
       - "${API_PORT:-8000}:8000"
+    volumes:
+      # Persist the Fyers OAuth session so a restart reconnects without a new
+      # login. Contains a secret token; backed by a named volume, not the image.
+      - fyers_session:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,6 +131,7 @@ volumes:
   postgres_data:
   redis_data:
   nats_data:
+  fyers_session:
 
 networks:
   mios:

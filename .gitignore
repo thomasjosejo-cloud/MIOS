@@ -20,3 +20,6 @@ htmlcov/
 .vscode/
 .idea/
 .toolchain/
+
+# Runtime data (Fyers session token) — never commit
+data/

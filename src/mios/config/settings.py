@@ -128,13 +128,27 @@ class Settings(BaseSettings):
     #: unaffected; enabling it without credentials fails fast at startup.
     OPTIONS_ENGINE_ENABLED: bool = False
 
+    # One-time app configuration from the Fyers dashboard. The access token is
+    # NOT configured here — it is obtained via the browser OAuth flow and
+    # persisted to the session file (see `mios.services.fyers_auth`).
     FYERS_CLIENT_ID: str | None = None
     FYERS_SECRET_KEY: SecretStr | None = None
     FYERS_REDIRECT_URI: str | None = None
-    #: Obtained once via the OAuth exchange (see `mios.integrations.fyers.auth`)
-    #: and supplied back to the application as a normal secret from then on.
+    #: Legacy: a pre-issued token may still be supplied, but the session file is
+    #: the primary source and takes precedence once a login completes.
     FYERS_ACCESS_TOKEN: SecretStr | None = None
     FYERS_REQUEST_TIMEOUT: float = Field(default=10.0, gt=0)
+
+    #: Absolute path where the OAuth session (access token + metadata) is
+    #: persisted. Defaults to the container's writable data volume; override for
+    #: local development. Survives restarts; never committed.
+    FYERS_SESSION_PATH: str = "/app/data/fyers/session.json"
+    #: Soft time-to-live for a stored token; past this age the token is
+    #: re-validated/rejected without a network call. Fyers tokens are daily.
+    FYERS_TOKEN_TTL_HOURS: float = Field(default=12.0, gt=0)
+    #: Dev/test only: drive the engine from the deterministic simulator instead
+    #: of waiting for a Fyers login. Off in production.
+    FYERS_USE_SIMULATOR: bool = False
 
     # --- Instrument scope --------------------------------------------------------
     NIFTY_SPOT_SYMBOL: str = "NSE:NIFTY50-INDEX"
@@ -238,6 +252,13 @@ class Settings(BaseSettings):
     def fyers_configured(self) -> bool:
         """Whether enough Fyers configuration is present to make API calls."""
         return bool(self.FYERS_CLIENT_ID and self.FYERS_ACCESS_TOKEN)
+
+    @property
+    def fyers_oauth_configured(self) -> bool:
+        """Whether the app is configured for the browser OAuth login flow."""
+        return bool(
+            self.FYERS_CLIENT_ID and self.FYERS_SECRET_KEY and self.FYERS_REDIRECT_URI
+        )
 
     @property
     def is_production(self) -> bool:

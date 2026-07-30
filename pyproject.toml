@@ -36,7 +36,9 @@ dev = [
 [tool.ruff]
 target-version = "py313"
 src = ["src", "tests"]
-extend-exclude = ["migrations/versions"]
+# `get_token.py` is a stray, untracked local helper (not part of the MIOS
+# package) that imports the fyers-apiv3 SDK we do not depend on.
+extend-exclude = ["migrations/versions", "get_token.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "N", "D", "ANN", "RUF"]

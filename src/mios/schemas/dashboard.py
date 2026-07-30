@@ -12,6 +12,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from mios.config.constants import AuthStatus, DataSource
 from mios.schemas.market import (
     CePeComparison,
     Classification,
@@ -58,6 +59,10 @@ class EngineStatus(BaseModel):
 class DashboardResponse(BaseModel):
     """Everything the dashboard needs, from one pipeline execution."""
 
+    #: Fyers authentication state — CONNECTED or NOT_AUTHENTICATED.
+    authentication: AuthStatus
+    #: Which source is feeding the engine (fyers / simulator / none).
+    data_source: DataSource
     market: MarketSection
     recommendation: RecommendationReport | None
     no_trade: NoTradeDecision | None

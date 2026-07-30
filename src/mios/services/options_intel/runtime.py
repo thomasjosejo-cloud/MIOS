@@ -1,19 +1,25 @@
 """Process-wide singletons for the live engine.
 
-Mirrors the `database`/`cache`/`event_bus` singleton pattern from the
-infrastructure layer: one shared `EngineStore` the API reads from, and one
-`OptionsIntelEngine` managed by the application lifespan. The data source is
-chosen from configuration — real Fyers when credentials are present, otherwise
-the deterministic simulator.
+Mirrors the `database`/`cache`/`event_bus` singleton pattern: one shared
+`EngineStore` the API reads from, and one `OptionsIntelEngine` managed by the
+application lifespan.
+
+Data-source selection is authentication-driven (Sprint 8). When a valid Fyers
+session exists the engine connects to live Fyers data; otherwise it waits for a
+browser login (`/api/v1/fyers/login`) and connects automatically once the
+callback completes. The deterministic simulator is used only when
+`FYERS_USE_SIMULATOR` is set, for development and tests.
 """
 
 from mios.config import Settings
+from mios.config.constants import DataSource
 from mios.core.logging import get_logger
 from mios.db.session import Database, database
 from mios.integrations.fyers.client import FyersClient
 from mios.integrations.fyers.market_data import MarketDataSource
 from mios.integrations.fyers.simulator import SimulatedMarketDataSource
 from mios.integrations.fyers.source import FyersMarketDataSource
+from mios.services.fyers_auth import get_auth_manager
 from mios.services.options_intel.engine import OptionsIntelEngine
 from mios.services.options_intel.store import EngineStore
 
@@ -26,38 +32,36 @@ _engine: OptionsIntelEngine | None = None
 _fyers_client: FyersClient | None = None
 
 
-class OptionsEngineConfigError(RuntimeError):
-    """The options engine is enabled but not correctly configured."""
-
-
-def build_source(settings: Settings) -> MarketDataSource:
-    """Return the configured market data source.
-
-    Uses the live Fyers source when credentials are present; otherwise falls
-    back to the deterministic simulator so the engine still runs in
-    development and tests.
-    """
+async def _resolve_source(settings: Settings) -> MarketDataSource | None:
+    """Choose the market data source, or `None` when authentication is pending."""
     global _fyers_client
 
-    if settings.fyers_configured:
-        assert settings.FYERS_CLIENT_ID is not None
-        assert settings.FYERS_ACCESS_TOKEN is not None
-        _fyers_client = FyersClient(
-            client_id=settings.FYERS_CLIENT_ID,
-            access_token=settings.FYERS_ACCESS_TOKEN.get_secret_value(),
-            timeout=settings.FYERS_REQUEST_TIMEOUT,
-        )
+    manager = get_auth_manager()
+    if manager.is_authenticated:
+        _fyers_client = manager.build_client()
+        store.authenticated = True
+        store.data_source = DataSource.FYERS
         logger.info("Options engine using live Fyers data source")
         return FyersMarketDataSource(_fyers_client, settings)
 
-    logger.warning(
-        "Fyers credentials not configured; options engine using simulated data"
-    )
-    return SimulatedMarketDataSource(settings)
+    if settings.FYERS_USE_SIMULATOR:
+        store.authenticated = False
+        store.data_source = DataSource.SIMULATOR
+        logger.warning("FYERS_USE_SIMULATOR set; engine using simulated data")
+        return SimulatedMarketDataSource(settings)
+
+    store.authenticated = False
+    store.data_source = DataSource.NONE
+    return None
 
 
 async def start_engine(settings: Settings, db: Database | None = None) -> None:
-    """Build and start the live engine, if enabled by configuration."""
+    """Start the engine if enabled, loading any persisted Fyers session first.
+
+    When enabled but not authenticated (and simulator is off), the engine waits:
+    it is not started here, but connects later via `connect_authenticated_engine`
+    once a login completes.
+    """
     global _engine
 
     if not settings.OPTIONS_ENGINE_ENABLED:
@@ -66,9 +70,27 @@ async def start_engine(settings: Settings, db: Database | None = None) -> None:
     if _engine is not None:
         return
 
-    source = build_source(settings)
+    # Restore a persisted session so a restart reconnects without a new login.
+    if settings.fyers_oauth_configured:
+        await get_auth_manager().load_on_startup()
+
+    source = await _resolve_source(settings)
+    if source is None:
+        logger.info(
+            "Options engine enabled; awaiting Fyers login at /api/v1/fyers/login"
+        )
+        return
+
     _engine = OptionsIntelEngine(source, store, db or database, settings)
     _engine.start()
+
+
+async def connect_authenticated_engine(
+    settings: Settings, db: Database | None = None
+) -> None:
+    """(Re)start the engine after a successful login, replacing any prior source."""
+    await stop_engine()
+    await start_engine(settings, db)
 
 
 async def stop_engine() -> None:

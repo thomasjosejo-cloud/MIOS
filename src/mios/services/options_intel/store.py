@@ -9,6 +9,7 @@ import datetime as dt
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from mios.config.constants import DataSource
 from mios.schemas.market import (
     CePeComparison,
     ClassificationResult,
@@ -41,6 +42,10 @@ class EngineStore:
     previous_spot_price: Decimal | None = None
     market_open: bool = False
     engine_running: bool = False
+    #: Whether a validated Fyers session currently drives the engine.
+    authenticated: bool = False
+    #: Which source is feeding the engine (fyers / simulator / none).
+    data_source: DataSource = DataSource.NONE
     last_poll_at: dt.datetime | None = None
     #: Wall-clock duration of the most recent pipeline run, in milliseconds.
     last_pipeline_runtime_ms: float | None = None

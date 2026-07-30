@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from mios.api.v1.endpoints.dashboard import router as dashboard_router
+from mios.api.v1.endpoints.fyers import router as fyers_router
 from mios.api.v1.endpoints.health import router as health_router
 from mios.api.v1.endpoints.market import router as market_router
 
@@ -10,3 +11,4 @@ router = APIRouter()
 router.include_router(health_router)
 router.include_router(market_router)
 router.include_router(dashboard_router)
+router.include_router(fyers_router)

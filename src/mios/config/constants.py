@@ -59,6 +59,21 @@ class HealthStatus(StrEnum):
     DEGRADED = "degraded"
 
 
+class AuthStatus(StrEnum):
+    """Fyers authentication state surfaced on the dashboard."""
+
+    CONNECTED = "CONNECTED"
+    NOT_AUTHENTICATED = "NOT_AUTHENTICATED"
+
+
+class DataSource(StrEnum):
+    """Which market data source currently drives the engine."""
+
+    FYERS = "fyers"
+    SIMULATOR = "simulator"
+    NONE = "none"
+
+
 # --- Fyers API v3 -------------------------------------------------------------
 #
 # Endpoints and header format verified directly against the official

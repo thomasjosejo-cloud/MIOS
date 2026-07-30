@@ -11,6 +11,7 @@ strikes.
 import datetime as dt
 from decimal import Decimal
 
+from mios.config.constants import AuthStatus
 from mios.schemas.dashboard import (
     DashboardResponse,
     EngineStatus,
@@ -32,6 +33,12 @@ def build_dashboard(
     now = now or dt.datetime.now(dt.UTC)
 
     return DashboardResponse(
+        authentication=(
+            AuthStatus.CONNECTED
+            if store.authenticated
+            else AuthStatus.NOT_AUTHENTICATED
+        ),
+        data_source=store.data_source,
         market=_market(store),
         recommendation=store.recommendation,
         no_trade=store.recommendation.no_trade if store.recommendation else None,

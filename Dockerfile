@@ -40,6 +40,12 @@ WORKDIR /app
 
 COPY --from=builder --chown=mios:mios /app /app
 
+# Writable data directory for the persisted Fyers session. Creating it in the
+# image owned by `mios` means a named volume mounted here inherits that
+# ownership on first initialisation, so the non-root app user can write the
+# session file without root.
+RUN mkdir -p /app/data && chown -R mios:mios /app/data
+
 USER mios
 
 EXPOSE 8000
