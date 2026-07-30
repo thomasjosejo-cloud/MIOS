@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_engine_from_config
 from sqlalchemy.pool import NullPool
 from sqlalchemy.schema import SchemaItem
 
+import mios.models  # noqa: F401  (side-effect: registers ORM tables on `metadata`)
 from mios.config import get_settings
 from mios.persistence import metadata
 
@@ -22,9 +23,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# The single metadata object for the platform. Importing `mios.persistence` is
-# enough today because no models are mapped yet; once model modules exist they
-# must be imported here so autogenerate sees their tables.
+# The single metadata object for the platform. All models are registered on it
+# via the `mios.models` import above.
 target_metadata = metadata
 
 config.set_main_option("sqlalchemy.url", get_settings().database_dsn)

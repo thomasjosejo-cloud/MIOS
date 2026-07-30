@@ -20,6 +20,13 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       NATS_SERVERS: nats://nats:4222
+      # Options Intelligence engine. Runs on the deterministic simulator unless
+      # Fyers credentials are supplied via the environment.
+      OPTIONS_ENGINE_ENABLED: ${OPTIONS_ENGINE_ENABLED:-false}
+      FYERS_CLIENT_ID: ${FYERS_CLIENT_ID:-}
+      FYERS_SECRET_KEY: ${FYERS_SECRET_KEY:-}
+      FYERS_ACCESS_TOKEN: ${FYERS_ACCESS_TOKEN:-}
+      ENGINE_POLL_INTERVAL_SECONDS: ${ENGINE_POLL_INTERVAL_SECONDS:-15}
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:

@@ -57,3 +57,23 @@ class HealthStatus(StrEnum):
 
     HEALTHY = "healthy"
     DEGRADED = "degraded"
+
+
+# --- Fyers API v3 -------------------------------------------------------------
+#
+# Endpoints and header format verified directly against the official
+# `fyers-apiv3` SDK source (fyersModel.py `Config` class), not documentation
+# prose. These are fixed properties of the Fyers API itself, not deployment
+# configuration, so they live here rather than in Settings.
+
+FYERS_AUTH_BASE_URL = "https://api-t1.fyers.in/api/v3"
+FYERS_DATA_BASE_URL = "https://api-t1.fyers.in/data"
+
+FYERS_GENERATE_AUTHCODE_PATH = "/generate-authcode"
+FYERS_VALIDATE_AUTHCODE_PATH = "/validate-authcode"
+FYERS_QUOTES_PATH = "/quotes"
+FYERS_OPTION_CHAIN_PATH = "/options-chain-v3"
+FYERS_HISTORY_PATH = "/history"
+FYERS_MARKET_STATUS_PATH = "/marketStatus"
+
+FYERS_API_VERSION_HEADER = "3"

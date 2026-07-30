@@ -347,12 +347,73 @@ uv run mypy .
 | `NATS_RECONNECT_TIME_WAIT` | `2` | Seconds between reconnect attempts |
 | `NATS_PING_INTERVAL` | `30` | Seconds between server pings |
 
+## Options Intelligence Engine
+
+A continuously running engine that answers one question: **which NIFTY option
+strike to trade right now, and why.** It polls market data on a configured
+interval and runs a pipeline of engines, each producing evidence-backed output
+(no scores or confidence percentages):
+
+```
+Fyers ─▶ Normalizer ─▶ Option Engine ─▶ Classification / Unusual Activity /
+Radar / CE-PE ─▶ Structure ─▶ Momentum ─▶ Context ─▶ Recommendation / No-Trade
+```
+
+Code lives in [`mios.services.options_intel`](src/mios/services/options_intel/);
+the Fyers integration and the deterministic simulator live in
+[`mios.integrations.fyers`](src/mios/integrations/fyers/). Latest results are
+held in an in-memory store and served by the API; each poll's per-strike state
+is also persisted to `option_strike_snapshot`.
+
+> **Architecture note.** This sprint implements the linear pipeline as
+> specified, with the engine calling Fyers and the engines calling one another
+> directly. That intentionally diverges from `docs/04-data-layer.md` and the
+> engine specs (`docs/09`–`docs/13`), which reserve external connectivity to
+> the Data Layer and mediate all engine coordination through the Event Bus.
+
+### Endpoints
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/v1/market/status` | Engine and market operational status (always available) |
+| `GET /api/v1/market/context` | Synthesized, evidence-backed market context |
+| `GET /api/v1/market/options` | Per-strike state, classification, unusual activity, CE/PE |
+| `GET /api/v1/market/recommendation` | Best CE, best PE, top candidates, and the no-trade decision |
+| `GET /api/v1/market/radar` | Seven ranked activity views across the chain |
+| `GET /api/v1/market/structure` | Price structure (HH/HL/LH/LL, S/R, pattern, trend) and momentum |
+
+The analysis endpoints return `503` until the first poll completes; `/status`
+always responds.
+
+### Enabling the engine
+
+Set `OPTIONS_ENGINE_ENABLED=true`. With Fyers credentials present the engine
+uses live data; without them it runs on the deterministic simulator, so the
+full pipeline works in development and tests without a broker account. All
+thresholds, the poll interval, symbols, expiry, and market hours are
+configurable — see `.env.example` (no magic numbers in engine code).
+
+### Fyers authentication (one time)
+
+Fyers issues a short-lived access token via an operator-driven OAuth exchange.
+Generate the login URL and exchange the returned code with the helpers in
+[`mios.integrations.fyers.auth`](src/mios/integrations/fyers/auth.py):
+
+1. Create an app at <https://myapi.fyers.in/dashboard/> to get a client ID,
+   secret, and redirect URI. Put the client ID, secret, and redirect URI in
+   `.env` (`FYERS_CLIENT_ID`, `FYERS_SECRET_KEY`, `FYERS_REDIRECT_URI`).
+2. Build the auth URL with `generate_authcode_url(...)`, open it, log in, and
+   copy the `auth_code` from the redirect.
+3. Exchange it with `exchange_auth_code(...)` and store the returned token as
+   `FYERS_ACCESS_TOKEN` in `.env`. The engine uses that token from then on.
+
+Tokens are never logged and are held as `SecretStr`.
+
 ## Roadmap
 
-- **Sprint 4** — Market Store domain models and repositories for the aggregates in [`docs/17-domain-model.md`](docs/17-domain-model.md), built on the persistence layer
-- Event publishing and consumption over the Event Bus per [`docs/06-event-bus.md`](docs/06-event-bus.md) and [`docs/22-event-contracts.md`](docs/22-event-contracts.md)
-- Analysis engines (price, liquidity, momentum, context) per [`docs/02-architecture.md`](docs/02-architecture.md)
-- Decision and AI explanation engines
+- Real-time Fyers WebSocket streaming to replace interval polling (the current
+  live path is REST polling on `ENGINE_POLL_INTERVAL_SECONDS`)
+- Realign the pipeline onto the Event Bus and Data Layer boundaries defined in
+  `docs/04` and `docs/09`–`docs/13`
 - Authentication and authorization per [`docs/27-security-model.md`](docs/27-security-model.md)
-- Structured error handling per [`docs/26-error-model.md`](docs/26-error-model.md)
 - Metrics, tracing, and correlation IDs per [`docs/28-observability-model.md`](docs/28-observability-model.md)

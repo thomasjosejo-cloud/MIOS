@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from mios.config import get_settings
 from mios.core.logging import get_logger
 from mios.core.startup import connect_infrastructure, disconnect_infrastructure
+from mios.services.options_intel.runtime import start_engine, stop_engine
 
 logger = get_logger(__name__)
 
@@ -29,10 +30,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.exception("Startup failed")
         raise
 
+    await start_engine(settings)
+
     logger.info("Startup completed")
 
     yield
 
+    await stop_engine()
     await disconnect_infrastructure()
     logger.info("Shutdown completed")
     logger.info("Application stopped")
