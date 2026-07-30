@@ -37,7 +37,11 @@ class EngineStore:
     recommendation: RecommendationReport | None = None
 
     spot_price: Decimal | None = None
+    #: Spot price from the previous poll, for computing spot change.
+    previous_spot_price: Decimal | None = None
     market_open: bool = False
     engine_running: bool = False
     last_poll_at: dt.datetime | None = None
+    #: Wall-clock duration of the most recent pipeline run, in milliseconds.
+    last_pipeline_runtime_ms: float | None = None
     last_error: str | None = None

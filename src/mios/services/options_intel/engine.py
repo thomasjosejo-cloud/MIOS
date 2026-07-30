@@ -12,6 +12,7 @@ data received, classification changes, recommendation changes, and errors.
 
 import asyncio
 import datetime as dt
+import time
 from decimal import Decimal
 
 from mios.config import Settings
@@ -115,6 +116,7 @@ class OptionsIntelEngine:
             },
         )
 
+        started = time.perf_counter()
         result = run_pipeline(
             option_engine=self._option_engine,
             option_quotes=option_quotes,
@@ -123,12 +125,14 @@ class OptionsIntelEngine:
             settings=self._settings,
             previous_cepe=self._store.cepe,
         )
+        runtime_ms = (time.perf_counter() - started) * 1000
 
         self._apply_to_store(result, spot_price=spot.ltp, market_open=market_open)
         self._log_classification_changes(result.classifications)
         self._log_recommendation_change(result.recommendation)
         await self._persist(result)
 
+        self._store.last_pipeline_runtime_ms = runtime_ms
         self._store.last_poll_at = dt.datetime.now(dt.UTC)
         self._store.last_error = None
 
@@ -137,6 +141,7 @@ class OptionsIntelEngine:
     ) -> None:
         """Copy a pipeline result and metadata into the shared store."""
         store = self._store
+        store.previous_spot_price = store.spot_price
         store.strike_states = result.strike_states
         store.classifications = result.classifications
         store.unusual = result.unusual
