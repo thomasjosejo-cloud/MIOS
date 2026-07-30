@@ -1,6 +1,7 @@
 """Async database engine and session lifecycle."""
 
 from collections.abc import AsyncGenerator, AsyncIterator
+from contextlib import asynccontextmanager
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
@@ -96,17 +97,35 @@ class Database:
         return True
 
     async def session(self) -> AsyncGenerator[AsyncSession]:
-        """Yield a session, rolling back if the caller raises."""
-        if self._sessionmaker is None:
-            msg = "Database is not connected; call connect() during startup"
-            raise RuntimeError(msg)
+        """Yield a session, rolling back if the caller raises.
 
-        async with self._sessionmaker() as session:
+        Committing is left to the caller so a request can decide its own
+        transaction boundaries.
+        """
+        async with self._session_factory()() as session:
             try:
                 yield session
             except Exception:
                 await session.rollback()
                 raise
+
+    @asynccontextmanager
+    async def transaction(self) -> AsyncIterator[AsyncSession]:
+        """Yield a session wrapped in a single unit of work.
+
+        Commits on success and rolls back on any exception, implementing the
+        all-or-nothing transaction principle in `docs/24-database-design.md` §12
+        for callers outside the request cycle, such as workers and scripts.
+        """
+        async with self._session_factory()() as session, session.begin():
+            yield session
+
+    def _session_factory(self) -> async_sessionmaker[AsyncSession]:
+        """Return the session factory, or fail if the database is not connected."""
+        if self._sessionmaker is None:
+            msg = "Database is not connected; call connect() during startup"
+            raise RuntimeError(msg)
+        return self._sessionmaker
 
 
 database = Database()

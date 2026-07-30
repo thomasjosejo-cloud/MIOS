@@ -7,8 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.pool import QueuePool
 
 from mios.config import Settings
-from mios.config.constants import DB_NAMING_CONVENTION
-from mios.db import Base, metadata
 from mios.db.session import Database
 from mios.db.timescale import verify_timescaledb
 
@@ -16,6 +14,15 @@ from mios.db.timescale import verify_timescaledb
 @pytest.fixture
 def db() -> Database:
     return Database()
+
+
+def _session_context() -> tuple[AsyncMock, MagicMock]:
+    """Build a mock session and the async context manager yielding it."""
+    session = AsyncMock(spec=AsyncSession)
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=session)
+    context.__aexit__ = AsyncMock(return_value=None)
+    return session, context
 
 
 def test_engine_is_not_created_at_import(db: Database) -> None:
@@ -81,10 +88,7 @@ async def test_session_requires_connection(db: Database) -> None:
 async def test_session_yields_and_rolls_back_on_error(
     db: Database, settings: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    session = AsyncMock(spec=AsyncSession)
-    context = MagicMock()
-    context.__aenter__ = AsyncMock(return_value=session)
-    context.__aexit__ = AsyncMock(return_value=None)
+    session, context = _session_context()
     db.connect(settings)
     monkeypatch.setattr(db, "_sessionmaker", MagicMock(return_value=context))
 
@@ -99,14 +103,23 @@ async def test_session_yields_and_rolls_back_on_error(
     session.rollback.assert_awaited_once()
 
 
-def test_metadata_uses_naming_convention() -> None:
-    assert Base.metadata is metadata
-    assert dict(metadata.naming_convention) == DB_NAMING_CONVENTION
+async def test_transaction_requires_a_connected_database(db: Database) -> None:
+    with pytest.raises(RuntimeError, match="not connected"):
+        async with db.transaction():
+            pass
 
 
-def test_no_orm_models_are_declared() -> None:
-    """Sprint 2 is infrastructure only; models arrive in a later sprint."""
-    assert metadata.tables == {}
+async def test_transaction_commits_on_success(
+    db: Database, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session, context = _session_context()
+    db.connect(settings)
+    monkeypatch.setattr(db, "_sessionmaker", MagicMock(return_value=context))
+
+    async with db.transaction() as yielded:
+        assert yielded is session
+
+    session.begin.assert_called_once()
 
 
 async def test_verify_timescaledb_reports_installed_version() -> None:

@@ -1,6 +1,9 @@
-"""Database infrastructure."""
+"""Database connection infrastructure.
 
-from mios.db.base import Base, metadata
+Owns the engine, sessions, and connectivity. The ORM base and mappings live in
+`mios.persistence`.
+"""
+
 from mios.db.session import Database, database, get_session
 
-__all__ = ["Base", "Database", "database", "get_session", "metadata"]
+__all__ = ["Database", "database", "get_session"]

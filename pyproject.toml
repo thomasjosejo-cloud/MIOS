@@ -64,6 +64,9 @@ disallow_untyped_calls = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: requires a reachable PostgreSQL server; skipped when absent",
+]
 filterwarnings = [
     # starlette's TestClient still ships the httpx 0.x integration.
     "ignore:Using `httpx` with `starlette.testclient` is deprecated",
