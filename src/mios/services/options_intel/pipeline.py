@@ -114,10 +114,14 @@ def run_pipeline(
     ranking = recommendation_engine.rank_candidates(
         classifications,
         unusual,
+        strike_states,
         structure,
         momentum,
         context,
-        min_evidence=settings.RECOMMENDATION_MIN_EVIDENCE,
+        min_conviction=settings.RECOMMENDATION_MIN_EVIDENCE,
+        min_oi=settings.RECOMMENDATION_MIN_OI,
+        min_volume=settings.RECOMMENDATION_MIN_VOLUME,
+        max_staleness_seconds=settings.RECOMMENDATION_MAX_STALENESS_SECONDS,
     )
     no_trade = no_trade_engine.evaluate(
         context,
@@ -131,10 +135,8 @@ def run_pipeline(
     recommendation = recommendation_engine.build_report(
         ranking,
         no_trade,
-        structure,
-        momentum,
         top_n=settings.RECOMMENDATION_TOP_N,
-        min_evidence=settings.RECOMMENDATION_MIN_EVIDENCE,
+        min_conviction=settings.RECOMMENDATION_MIN_EVIDENCE,
     )
 
     return PipelineResult(

@@ -46,6 +46,7 @@ CandleFactory = Callable[[list[float]], list[Candle]]
 def _recommend(
     classifications: list[ClassificationResult],
     unusual: list[UnusualActivity],
+    strike_states: list[StrikeState],
     structure: StructureState,
     momentum: MomentumReport,
     context: MarketContext,
@@ -59,14 +60,19 @@ def _recommend(
 
     Mirrors `pipeline.run_pipeline` so the tests exercise the same orchestration
     the Pipeline performs now that Recommendation no longer calls No-Trade.
+    Stage-1 liquidity/staleness gates are left permissive (0) here.
     """
     ranking = recommendation_engine.rank_candidates(
         classifications,
         unusual,
+        strike_states,
         structure,
         momentum,
         context,
-        min_evidence=min_evidence,
+        min_conviction=min_evidence,
+        min_oi=0,
+        min_volume=0,
+        max_staleness_seconds=0.0,
     )
     no_trade = no_trade_engine.evaluate(
         context,
@@ -78,7 +84,7 @@ def _recommend(
         min_reasons=min_no_trade_reasons,
     )
     return recommendation_engine.build_report(
-        ranking, no_trade, structure, momentum, top_n=top_n, min_evidence=min_evidence
+        ranking, no_trade, top_n=top_n, min_conviction=min_evidence
     )
 
 
@@ -224,6 +230,7 @@ def test_recommendation_prefers_supported_ce(
     report = _recommend(
         classifications,
         unusual,
+        states,
         structure,
         momentum,
         context,
@@ -283,6 +290,7 @@ def test_no_trade_when_conditions_are_weak(
             premium_change_pct=20,
             oi_velocity_per_min=500,
         ),
+        states,
         structure,
         momentum,
         context,
@@ -320,6 +328,7 @@ def test_no_trade_reasons_are_specific_not_generic(
     report = _recommend(
         [],
         [],
+        states,
         structure,
         momentum,
         context,

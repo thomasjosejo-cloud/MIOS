@@ -191,9 +191,16 @@ class Settings(BaseSettings):
 
     # --- Recommendation engine ---------------------------------------------------
     RECOMMENDATION_TOP_N: int = Field(default=5, ge=1)
-    #: Minimum number of supporting evidence factors before a strike is
-    #: eligible to be recommended at all.
+    #: Minimum conviction tier (0-4) a candidate must reach before it can be
+    #: named the best CE/PE. Below this, the No-Trade Engine decides.
     RECOMMENDATION_MIN_EVIDENCE: int = Field(default=2, ge=1)
+    #: Stage-1 liquidity floors: a candidate below either is rejected outright.
+    #: Default 0 keeps every strike eligible (no behaviour change) until tuned.
+    RECOMMENDATION_MIN_OI: int = Field(default=0, ge=0)
+    RECOMMENDATION_MIN_VOLUME: int = Field(default=0, ge=0)
+    #: Stage-1 staleness floor in seconds since a strike last updated; 0 disables
+    #: the check so nothing is rejected for staleness until tuned.
+    RECOMMENDATION_MAX_STALENESS_SECONDS: float = Field(default=0.0, ge=0)
 
     # --- No-Trade engine -----------------------------------------------------
     #: Rank gap (out of the evidence-factor count) below which the best CE and
