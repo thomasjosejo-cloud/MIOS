@@ -1,0 +1,20 @@
+.git/
+.gitignore
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.vscode/
+.idea/
+.env
+docs/
+tests/
+# README.md is NOT ignored: pyproject declares `readme = "README.md"`, so the
+# build backend needs it in the context to package the project.
+Dockerfile
+.dockerignore
+docker-compose.yml

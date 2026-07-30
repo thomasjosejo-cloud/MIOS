@@ -12,7 +12,7 @@ from mios.core.logging import configure_logging
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
     settings = get_settings()
-    configure_logging(settings.LOG_LEVEL)
+    configure_logging(settings.LOG_LEVEL, json_format=settings.LOG_JSON)
 
     app = FastAPI(
         title=settings.APP_NAME,
