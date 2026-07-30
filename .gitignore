@@ -19,3 +19,4 @@ htmlcov/
 # Editors
 .vscode/
 .idea/
+.toolchain/

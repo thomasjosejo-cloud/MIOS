@@ -51,6 +51,18 @@ services:
     networks:
       - mios
 
+  frontend:
+    # Static React build served by nginx, which proxies /api to the api service.
+    build:
+      context: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - mios
+
   postgres:
     # TimescaleDB on PostgreSQL 17, per docs/00-technology-stack.md.
     image: timescale/timescaledb:latest-pg17
