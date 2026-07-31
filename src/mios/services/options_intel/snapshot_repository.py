@@ -1,14 +1,27 @@
 """Persistence of Option Engine snapshots.
 
-The only writer of `OptionStrikeSnapshot`. Kept separate from the engines so
-they stay pure and testable — they compute state; this stores it. Not a
-general repository: it exposes exactly the one write the orchestrator needs.
+The writer of `OptionStrikeSnapshot` (per poll) and the single read it backs:
+the per-strike historical progression the Strike Evolution panel renders. Kept
+separate from the engines so they stay pure — they compute state; this stores
+and retrieves it.
 """
 
+from decimal import Decimal
+
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mios.models.options import OptionStrikeSnapshot
-from mios.schemas.market import ClassificationResult, StrikeState
+from mios.schemas.dashboard import StrikeHistory, StrikeHistoryPoint
+from mios.schemas.market import ClassificationResult, OptionType, StrikeState
+
+
+def _pct(change: Decimal, current: Decimal) -> float | None:
+    """Percent change from the prior value, derived from stored current+delta."""
+    previous = current - change
+    if previous == 0:
+        return None
+    return round(float(change / previous * 100), 2)
 
 
 def build_rows(
@@ -54,3 +67,49 @@ async def persist_snapshots(
     session.add_all(rows)
     await session.flush()
     return len(rows)
+
+
+async def load_strike_history(
+    session: AsyncSession,
+    *,
+    symbol: str,
+    strike: Decimal,
+    option_type: OptionType,
+    limit: int,
+) -> StrikeHistory:
+    """Load a strike's persisted snapshots (oldest first) for Strike Evolution.
+
+    Percentage changes are derived in the backend from the stored current value
+    and per-poll delta, so the frontend only renders. Returns an empty series
+    when no history has been captured yet.
+    """
+    stmt = (
+        select(OptionStrikeSnapshot)
+        .where(
+            OptionStrikeSnapshot.symbol == symbol,
+            OptionStrikeSnapshot.strike == strike,
+            OptionStrikeSnapshot.option_type == option_type,
+        )
+        .order_by(OptionStrikeSnapshot.captured_at.desc())
+        .limit(limit)
+    )
+    rows = list((await session.execute(stmt)).scalars().all())
+    rows.reverse()  # oldest first for a left-to-right progression
+
+    points = [
+        StrikeHistoryPoint(
+            captured_at=row.captured_at,
+            oi=row.oi,
+            oi_change=row.oi_change,
+            oi_change_pct=_pct(Decimal(row.oi_change), Decimal(row.oi)),
+            premium=row.premium,
+            premium_change=row.premium_change,
+            premium_change_pct=_pct(row.premium_change, row.premium),
+            volume=row.volume,
+            volume_change=row.volume_change,
+            volume_change_pct=_pct(Decimal(row.volume_change), Decimal(row.volume)),
+            classification=row.classification,
+        )
+        for row in rows
+    ]
+    return StrikeHistory(strike=strike, option_type=option_type, points=points)

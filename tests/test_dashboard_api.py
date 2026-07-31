@@ -73,6 +73,7 @@ def test_dashboard_returns_full_envelope(
         "narrative",
         "dominance",
         "qualification",
+        "participation",
         "context",
         "ce_pe",
         "option_chain",
@@ -121,6 +122,33 @@ def test_option_chain_trimmed_to_five_per_side(
     assert len(dashboard.option_chain) <= 10
     assert len(ce) <= 5
     assert len(pe) <= 5
+
+
+def test_participation_is_ranked_by_oi_change(fresh_store: EngineStore) -> None:
+    # Participation Radar ranks strikes by fresh OI positioning, descending,
+    # with sequential ranks starting at 1. No ranking happens in the frontend.
+    import asyncio
+
+    async def run() -> None:
+        settings = Settings(OPTION_STRIKE_COUNT=21, CANDLE_LOOKBACK_COUNT=30)
+        db = MagicMock()
+        db.is_connected = False
+        engine = OptionsIntelEngine(
+            SimulatedMarketDataSource(settings), fresh_store, db, settings
+        )
+        fresh_store.engine_running = True
+        await engine.poll_once()
+        await engine.poll_once()
+
+    asyncio.run(run())
+
+    participation = build_dashboard(fresh_store).participation
+
+    assert participation
+    assert len(participation) <= 8
+    assert [p.rank for p in participation] == list(range(1, len(participation) + 1))
+    oi_changes = [p.oi_change for p in participation]
+    assert oi_changes == sorted(oi_changes, reverse=True)
 
 
 def test_option_chain_rows_have_required_fields(

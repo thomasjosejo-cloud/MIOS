@@ -113,6 +113,28 @@ export const dashboardFixture: DashboardResponse = {
     important_strikes: ["25150"],
     evidence: ["Net CE OI change: +12,000"],
   },
+  participation: [
+    {
+      rank: 1,
+      strike: "25000",
+      option_type: "PE",
+      classification: "short_buildup",
+      oi_change: 2600,
+      oi_change_pct: 5.35,
+      premium_change_pct: -1.29,
+      volume_change_pct: 40.4,
+    },
+    {
+      rank: 2,
+      strike: "25150",
+      option_type: "CE",
+      classification: "long_buildup",
+      oi_change: 1400,
+      oi_change_pct: 3.54,
+      premium_change_pct: 9.0,
+      volume_change_pct: 34.0,
+    },
+  ],
   option_chain: [
     {
       strike: "25150",
@@ -243,6 +265,7 @@ export const notConnectedFixture: DashboardResponse = {
   narrative: null,
   dominance: null,
   qualification: null,
+  participation: [],
   context: null,
   ce_pe: null,
   option_chain: [],

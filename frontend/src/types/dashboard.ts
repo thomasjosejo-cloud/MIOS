@@ -122,6 +122,37 @@ export interface OptionChainRow {
   recommendation_flag: boolean;
 }
 
+export interface ParticipationRow {
+  rank: number;
+  strike: string;
+  option_type: OptionType;
+  classification: Classification | null;
+  oi_change: number;
+  oi_change_pct: number | null;
+  premium_change_pct: number | null;
+  volume_change_pct: number | null;
+}
+
+export interface StrikeHistoryPoint {
+  captured_at: string;
+  oi: number;
+  oi_change: number;
+  oi_change_pct: number | null;
+  premium: string;
+  premium_change: string;
+  premium_change_pct: number | null;
+  volume: number;
+  volume_change: number;
+  volume_change_pct: number | null;
+  classification: Classification | null;
+}
+
+export interface StrikeHistory {
+  strike: string;
+  option_type: OptionType;
+  points: StrikeHistoryPoint[];
+}
+
 export interface EngineStatus {
   healthy: boolean;
   pipeline_runtime_ms: number | null;
@@ -146,6 +177,7 @@ export interface DashboardResponse {
   narrative: MarketNarrative | null;
   dominance: MarketDominance | null;
   qualification: TradeQualification | null;
+  participation: ParticipationRow[];
   context: MarketContext | null;
   ce_pe: CePeComparison | null;
   option_chain: OptionChainRow[];

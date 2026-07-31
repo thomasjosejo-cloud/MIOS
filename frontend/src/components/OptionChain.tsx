@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import type { SelectedStrike } from "@/components/ParticipationRadar";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDecimal, formatInt, formatSignedInt, labelize } from "@/lib/format";
 import { rowDomId } from "@/lib/rows";
@@ -63,10 +64,12 @@ export function OptionChain({
   rows,
   highlightedRowId,
   qualification = null,
+  selected = null,
 }: {
   rows: OptionChainRow[];
   highlightedRowId: string | null;
   qualification?: TradeQualification | null;
+  selected?: SelectedStrike | null;
 }) {
   return (
     <Card id="option-chain" className="scroll-mt-16 overflow-hidden">
@@ -90,7 +93,10 @@ export function OptionChain({
               const id = rowDomId(row.strike, row.option_type);
               const mark = markFor(qualification, row.strike, row.option_type);
               const marker = mark ? MARK[mark] : null;
-              const isSelected = highlightedRowId === id;
+              const isSelected =
+                highlightedRowId === id ||
+                (selected?.strike === row.strike &&
+                  selected?.option_type === row.option_type);
               return (
                 <tr
                   key={id}
@@ -99,7 +105,7 @@ export function OptionChain({
                   className={cn(
                     "scroll-mt-14 border-b border-border/60 tabular-nums transition-colors",
                     marker?.row,
-                    isSelected && "ring-1 ring-inset ring-accent",
+                    isSelected && "ring-1 ring-inset ring-accent bg-accent/10",
                     "hover:bg-border/40",
                   )}
                 >

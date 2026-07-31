@@ -7,21 +7,25 @@ misleading empty body — except `/market/status`, which always reports the
 engine's current operational state.
 """
 
+from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from mios.config import Settings, get_settings
-from mios.schemas.dashboard import AuditReport
+from mios.db.session import get_session
+from mios.schemas.dashboard import AuditReport, StrikeHistory
 from mios.schemas.market import (
     MarketContext,
     MarketStatusReport,
     OptionsReport,
+    OptionType,
     RadarReport,
     StructureReport,
     TradeQualification,
 )
-from mios.services.options_intel import audit
+from mios.services.options_intel import audit, snapshot_repository
 from mios.services.options_intel.market_hours import is_market_open
 from mios.services.options_intel.runtime import get_store
 from mios.services.options_intel.store import EngineStore
@@ -30,6 +34,7 @@ router = APIRouter(prefix="/market", tags=["market"])
 
 StoreDep = Annotated[EngineStore, Depends(get_store)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 _NOT_READY = "Engine has not produced this view yet; check /market/status"
 
@@ -70,6 +75,28 @@ async def market_recommendation(store: StoreDep) -> TradeQualification:
     _require(store.qualification)
     assert store.qualification is not None
     return store.qualification
+
+
+@router.get("/strike-history", response_model=StrikeHistory)
+async def market_strike_history(
+    session: SessionDep,
+    settings: SettingsDep,
+    strike: Annotated[Decimal, Query(description="Strike price, e.g. 24400")],
+    option_type: Annotated[OptionType, Query(description="CE or PE")],
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> StrikeHistory:
+    """Return a strike's persisted historical progression (Strike Evolution).
+
+    Reads the option-snapshot history for one strike, oldest first. The frontend
+    renders whatever series exists; an empty list means no history captured yet.
+    """
+    return await snapshot_repository.load_strike_history(
+        session,
+        symbol=settings.NIFTY_SPOT_SYMBOL,
+        strike=strike,
+        option_type=option_type,
+        limit=limit,
+    )
 
 
 @router.get("/audit", response_model=AuditReport)

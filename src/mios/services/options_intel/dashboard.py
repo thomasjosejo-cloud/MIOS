@@ -19,6 +19,7 @@ from mios.schemas.dashboard import (
     MarketNarrative,
     MarketSection,
     OptionChainRow,
+    ParticipationRow,
 )
 from mios.schemas.market import Classification, OptionType, TradeQualification
 from mios.services.options_intel import consistency, presentation
@@ -52,11 +53,49 @@ def build_dashboard(
         narrative=narrative,
         dominance=dominance,
         qualification=store.qualification,
+        participation=_participation(store),
         context=store.context,
         ce_pe=store.cepe,
         option_chain=_option_chain(store),
         engine=_engine_status(store, now),
     )
+
+
+#: How many strongest-participation strikes the radar panel shows.
+_PARTICIPATION_TOP_N = 8
+
+
+def _participation(store: EngineStore) -> list[ParticipationRow]:
+    """Rank strikes by fresh OI positioning (Radar engine's OI-addition order).
+
+    Reuses the already-computed OI change to order strikes, and attaches each
+    strike's existing classification and percentage changes. No new score or
+    ranking metric is introduced — this is assembly of existing engine output.
+    """
+    classification_by_key: dict[tuple[Decimal, OptionType], Classification] = {
+        (c.strike, c.option_type): c.classification for c in store.classifications
+    }
+    # Strongest fresh positioning first (largest OI addition), matching the
+    # Radar engine's `highest_oi_addition` ordering.
+    ranked = sorted(
+        store.strike_states,
+        key=lambda s: s.oi_change,
+        reverse=True,
+    )[:_PARTICIPATION_TOP_N]
+
+    return [
+        ParticipationRow(
+            rank=index + 1,
+            strike=state.strike,
+            option_type=state.option_type,
+            classification=classification_by_key.get((state.strike, state.option_type)),
+            oi_change=state.oi_change,
+            oi_change_pct=state.oi_change_pct,
+            premium_change_pct=state.premium_change_pct,
+            volume_change_pct=state.volume_change_pct,
+        )
+        for index, state in enumerate(ranked)
+    ]
 
 
 def _log_consistency(

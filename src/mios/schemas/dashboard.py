@@ -59,6 +59,48 @@ class MarketDominance(BaseModel):
     control_shift_to: str
 
 
+class ParticipationRow(BaseModel):
+    """One strike in the Participation Radar, ranked by fresh OI positioning.
+
+    Ranking and every value come from existing engine outputs (the Radar
+    engine's OI-addition ordering plus the Option Engine's already-computed
+    percentage changes and classification) — nothing new is calculated here.
+    """
+
+    rank: int
+    strike: Decimal
+    option_type: OptionType
+    classification: Classification | None
+    oi_change: int
+    oi_change_pct: float | None
+    premium_change_pct: float | None
+    volume_change_pct: float | None
+
+
+class StrikeHistoryPoint(BaseModel):
+    """One persisted snapshot of a strike, for the Strike Evolution panel."""
+
+    captured_at: dt.datetime
+    oi: int
+    oi_change: int
+    oi_change_pct: float | None
+    premium: Decimal
+    premium_change: Decimal
+    premium_change_pct: float | None
+    volume: int
+    volume_change: int
+    volume_change_pct: float | None
+    classification: Classification | None
+
+
+class StrikeHistory(BaseModel):
+    """The historical progression of one strike, oldest first."""
+
+    strike: Decimal
+    option_type: OptionType
+    points: list[StrikeHistoryPoint]
+
+
 class OptionChainRow(BaseModel):
     """One strike, projected from already-computed pipeline outputs."""
 
@@ -94,6 +136,8 @@ class DashboardResponse(BaseModel):
     narrative: MarketNarrative | None
     dominance: MarketDominance | None
     qualification: TradeQualification | None
+    #: Strikes with the strongest fresh participation, ranked (Radar engine).
+    participation: list[ParticipationRow]
     context: MarketContext | None
     ce_pe: CePeComparison | None
     #: Trimmed to the five CE and five PE strikes nearest the money.
