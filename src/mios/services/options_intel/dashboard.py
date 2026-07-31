@@ -1,11 +1,10 @@
 """Dashboard aggregation.
 
 Assembles a `DashboardResponse` from the latest pipeline execution held in the
-`EngineStore`. This is a thin projection: it performs no analysis and never
-runs the pipeline — the background poll loop is the sole producer of the data
-read here. The option-chain rows are a join over already-computed strike
-states, classifications, unusual activity, and the recommendation's flagged
-strikes.
+`EngineStore`. This is a thin projection: it performs no analysis and never runs
+the pipeline. Beyond the raw engine outputs it adds the decision-centric
+presentation — narrative and dominance (via `presentation`) — and trims the
+option chain to the five CE and five PE strikes nearest the money.
 """
 
 import datetime as dt
@@ -15,15 +14,17 @@ from mios.config.constants import AuthStatus
 from mios.schemas.dashboard import (
     DashboardResponse,
     EngineStatus,
+    MarketDominance,
+    MarketNarrative,
     MarketSection,
     OptionChainRow,
 )
-from mios.schemas.market import (
-    Classification,
-    OptionType,
-    RecommendationReport,
-)
+from mios.schemas.market import Classification, OptionType, TradeQualification
+from mios.services.options_intel import presentation
 from mios.services.options_intel.store import EngineStore
+
+#: Strikes to show per side around the money (Sprint 10.1: 5 CE + 5 PE).
+_CHAIN_PER_SIDE = 5
 
 
 def build_dashboard(
@@ -33,6 +34,7 @@ def build_dashboard(
     now = now or dt.datetime.now(dt.UTC)
 
     return DashboardResponse(
+        connection_state=store.connection_state,
         authentication=(
             AuthStatus.CONNECTED
             if store.authenticated
@@ -40,13 +42,11 @@ def build_dashboard(
         ),
         data_source=store.data_source,
         market=_market(store),
-        recommendation=store.recommendation,
-        no_trade=store.recommendation.no_trade if store.recommendation else None,
+        narrative=_narrative(store),
+        dominance=_dominance(store),
+        qualification=store.qualification,
         context=store.context,
         ce_pe=store.cepe,
-        top_candidates=(
-            store.recommendation.top_candidates if store.recommendation else []
-        ),
         option_chain=_option_chain(store),
         engine=_engine_status(store, now),
     )
@@ -73,18 +73,56 @@ def _market(store: EngineStore) -> MarketSection:
     )
 
 
+def _narrative(store: EngineStore) -> MarketNarrative | None:
+    """Build the plain-language market story from existing engine outputs."""
+    if store.context is None or store.structure is None or store.momentum is None:
+        return None
+    if store.qualification is None or store.spot_price is None:
+        return None
+    return presentation.build_narrative(
+        store.classifications,
+        store.context,
+        store.structure,
+        store.momentum,
+        store.qualification,
+        spot=store.spot_price,
+    )
+
+
+def _dominance(store: EngineStore) -> MarketDominance | None:
+    """Build the market-dominance view from the existing CE/PE analysis."""
+    if store.cepe is None:
+        return None
+    return presentation.build_dominance(store.classifications, store.cepe)
+
+
 def _option_chain(store: EngineStore) -> list[OptionChainRow]:
-    """Project each tracked strike into a dashboard row (no new calculations)."""
+    """Project the 5 CE + 5 PE strikes nearest ATM into dashboard rows."""
     classification_by_key: dict[tuple[Decimal, OptionType], Classification] = {
         (c.strike, c.option_type): c.classification for c in store.classifications
     }
     unusual_by_key: dict[tuple[Decimal, OptionType], list[str]] = {
         (u.strike, u.option_type): u.triggers for u in store.unusual
     }
-    recommended = _recommended_keys(store.recommendation)
+    recommended = _recommended_keys(store.qualification)
+    spot = store.spot_price
+
+    def distance(state_strike: Decimal) -> Decimal:
+        return abs(state_strike - spot) if spot is not None else state_strike
+
+    ce = sorted(
+        (s for s in store.strike_states if s.option_type is OptionType.CE),
+        key=lambda s: distance(s.strike),
+    )[:_CHAIN_PER_SIDE]
+    pe = sorted(
+        (s for s in store.strike_states if s.option_type is OptionType.PE),
+        key=lambda s: distance(s.strike),
+    )[:_CHAIN_PER_SIDE]
+
+    nearest = sorted(ce + pe, key=lambda s: (s.strike, s.option_type.value))
 
     rows: list[OptionChainRow] = []
-    for state in store.strike_states:
+    for state in nearest:
         key = (state.strike, state.option_type)
         rows.append(
             OptionChainRow(
@@ -103,19 +141,14 @@ def _option_chain(store: EngineStore) -> list[OptionChainRow]:
 
 
 def _recommended_keys(
-    recommendation: RecommendationReport | None,
+    qualification: TradeQualification | None,
 ) -> set[tuple[Decimal, OptionType]]:
-    """Collect the (strike, option_type) keys the recommendation flags."""
-    if recommendation is None:
+    """Return the (strike, option_type) of the qualified trade, if any."""
+    if qualification is None or qualification.strike is None:
         return set()
-
-    keys: set[tuple[Decimal, OptionType]] = set()
-    for pick in (recommendation.best_ce, recommendation.best_pe):
-        if pick is not None:
-            keys.add((pick.strike, pick.option_type))
-    for candidate in recommendation.top_candidates:
-        keys.add((candidate.strike, candidate.option_type))
-    return keys
+    if qualification.option_type is None:
+        return set()
+    return {(qualification.strike, qualification.option_type)}
 
 
 def _engine_status(store: EngineStore, now: dt.datetime) -> EngineStatus:

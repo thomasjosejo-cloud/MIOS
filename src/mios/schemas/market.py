@@ -278,33 +278,77 @@ class MarketContext(BaseModel):
     evidence: list[str]
 
 
-# --- Recommendation Engine ------------------------------------------------------------
+# --- Trade Qualification Engine -------------------------------------------------------
 
 
-class StrikeRecommendation(BaseModel):
-    """A recommended strike, with the evidence supporting it."""
+class TradeDecision(StrEnum):
+    """The qualification engine's final decision."""
+
+    BUY_CE = "BUY_CE"
+    BUY_PE = "BUY_PE"
+    NO_TRADE = "NO_TRADE"
+
+
+class ConfidenceBand(StrEnum):
+    """Human-readable band for the weighted confidence score."""
+
+    VERY_LOW = "Very Low"
+    LOW = "Low"
+    MEDIUM = "Medium"
+    HIGH = "High"
+    VERY_HIGH = "Very High"
+
+
+class GateName(StrEnum):
+    """The four qualification gates, in evaluation order."""
+
+    MARKET_REGIME = "Market Regime"
+    OPTIONS_PARTICIPATION = "Options Participation"
+    CE_PE_CONTROL = "CE vs PE Control"
+    STRIKE_QUALITY = "Strike Quality"
+
+
+class QualificationGate(BaseModel):
+    """The result of one qualification gate."""
+
+    name: GateName
+    passed: bool
+    reason: str
+    weight: int
+    mandatory: bool
+
+
+class BestCandidate(BaseModel):
+    """The strongest strike MIOS is watching, shown even during NO TRADE."""
 
     strike: Decimal
     option_type: OptionType
     classification: Classification
-    evidence: list[str]
+    qualification: int
     reason: str
 
 
-class NoTradeDecision(BaseModel):
-    """An explicit no-trade determination, with the factual reasons behind it."""
+class TradeQualification(BaseModel):
+    """The engine's final, gate-based decision for the current poll.
 
-    no_trade: bool
+    Every trade either passes qualification or does not: the four gates and the
+    confidence make the decision fully explainable. A failing mandatory gate
+    yields NO_TRADE, so the system is willing to stand aside indefinitely.
+    `best_candidate` is always populated (when any candidate exists) so the
+    trader can see what MIOS is watching even when no trade is qualified.
+    """
+
+    decision: TradeDecision
+    qualified: bool
+    strike: Decimal | None
+    option_type: OptionType | None
+    classification: Classification | None
+    confidence: int
+    band: ConfidenceBand
+    gates: list[QualificationGate]
+    failed_gates: list[GateName]
     reasons: list[str]
-
-
-class RecommendationReport(BaseModel):
-    """The engine's final recommendation for the current poll."""
-
-    best_ce: StrikeRecommendation | None
-    best_pe: StrikeRecommendation | None
-    top_candidates: list[StrikeRecommendation]
-    no_trade: NoTradeDecision
+    best_candidate: BestCandidate | None
 
 
 # --- Composite API responses ---------------------------------------------------------

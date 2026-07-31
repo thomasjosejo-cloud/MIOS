@@ -1,7 +1,10 @@
 import type { DashboardResponse } from "@/types/dashboard";
 
-/** A representative healthy dashboard payload for tests. */
+/** A representative healthy, qualified-trade dashboard payload for tests. */
 export const dashboardFixture: DashboardResponse = {
+  connection_state: "connected",
+  authentication: "CONNECTED",
+  data_source: "simulator",
   market: {
     spot: "25184.25",
     change: "86.25",
@@ -9,40 +12,84 @@ export const dashboardFixture: DashboardResponse = {
     status: "LIVE",
     updated_at: "2026-01-01T09:42:15+00:00",
   },
-  recommendation: {
-    best_ce: {
+  narrative: {
+    tone: "bullish",
+    headline:
+      "🟢 Bulls are gradually taking control. Fresh call buying is visible at 25150 and 25200. The underlying is breaking out, and MIOS has qualified 25150 CE.",
+    statements: [
+      "Bulls are in control.",
+      "Buyer participation increasing.",
+      "Momentum is increasing.",
+      "Price is breaking out.",
+      "Trade qualified.",
+    ],
+  },
+  dominance: {
+    control: "bulls",
+    buyers_pct: 78,
+    writers_pct: 22,
+    ce_dominance: "Strong",
+    pe_dominance: "Weak",
+    control_shift_from: "Neutral",
+    control_shift_to: "Bullish",
+  },
+  qualification: {
+    decision: "BUY_CE",
+    qualified: true,
+    strike: "25150",
+    option_type: "CE",
+    classification: "long_buildup",
+    confidence: 100,
+    band: "Very High",
+    gates: [
+      {
+        name: "Market Regime",
+        passed: true,
+        reason: "Confirmed breakout.",
+        weight: 30,
+        mandatory: true,
+      },
+      {
+        name: "Options Participation",
+        passed: true,
+        reason: "Long Buildup at 25150 CE.",
+        weight: 30,
+        mandatory: true,
+      },
+      {
+        name: "CE vs PE Control",
+        passed: true,
+        reason: "CE side is in control.",
+        weight: 25,
+        mandatory: true,
+      },
+      {
+        name: "Strike Quality",
+        passed: true,
+        reason: "Liquid and 1 step(s) from ATM.",
+        weight: 15,
+        mandatory: false,
+      },
+    ],
+    failed_gates: [],
+    reasons: [
+      "OI ↑ 18.0%",
+      "Premium ↑ 9.0%",
+      "Volume ↑ 34.0%",
+      "Unusual activity flagged",
+      "Buyers dominant",
+      "Bulls control market",
+      "No contradiction",
+      "Trend supports options activity",
+    ],
+    best_candidate: {
       strike: "25150",
       option_type: "CE",
       classification: "long_buildup",
-      evidence: [
-        "OI ↑ 18.0%",
-        "Premium ↑ 9.0%",
-        "Volume ↑ 34.0%",
-        "Buyers dominant.",
-        "Structure confirms breakout.",
-      ],
-      reason: "Fresh long positions are being added.",
+      qualification: 91,
+      reason: "Qualified: option activity and market structure aligned.",
     },
-    best_pe: null,
-    top_candidates: [
-      {
-        strike: "25150",
-        option_type: "CE",
-        classification: "long_buildup",
-        evidence: ["OI ↑ 18.0%"],
-        reason: "Fresh long positions.",
-      },
-      {
-        strike: "25200",
-        option_type: "CE",
-        classification: "short_covering",
-        evidence: ["OI ↓ 4.0%"],
-        reason: "Shorts covering.",
-      },
-    ],
-    no_trade: { no_trade: false, reasons: [] },
   },
-  no_trade: { no_trade: false, reasons: [] },
   context: {
     controlling_side: "bulls",
     dominant_participant: "buyers",
@@ -66,22 +113,6 @@ export const dashboardFixture: DashboardResponse = {
     important_strikes: ["25150"],
     evidence: ["Net CE OI change: +12,000"],
   },
-  top_candidates: [
-    {
-      strike: "25150",
-      option_type: "CE",
-      classification: "long_buildup",
-      evidence: ["OI ↑ 18.0%"],
-      reason: "Fresh long positions.",
-    },
-    {
-      strike: "25200",
-      option_type: "CE",
-      classification: "short_covering",
-      evidence: ["OI ↓ 4.0%"],
-      reason: "Shorts covering.",
-    },
-  ],
   option_chain: [
     {
       strike: "25150",
@@ -103,7 +134,7 @@ export const dashboardFixture: DashboardResponse = {
       volume: 9021,
       classification: "short_covering",
       unusual_flags: [],
-      recommendation_flag: true,
+      recommendation_flag: false,
     },
     {
       strike: "25000",
@@ -124,27 +155,96 @@ export const dashboardFixture: DashboardResponse = {
   },
 };
 
-/** A no-trade payload with a ranging, trendless market. */
+/** A no-trade payload: mandatory gate fails, best candidate still shown. */
 export const noTradeFixture: DashboardResponse = {
   ...dashboardFixture,
-  recommendation: {
-    best_ce: null,
-    best_pe: null,
-    top_candidates: [],
-    no_trade: {
-      no_trade: true,
-      reasons: [
-        "No HH-HL or LH-LL structure; price action lacks a defined trend.",
-        "Price is inside a range, with no breakout or breakdown.",
-      ],
-    },
-  },
-  no_trade: {
-    no_trade: true,
-    reasons: [
-      "No HH-HL or LH-LL structure; price action lacks a defined trend.",
-      "Price is inside a range, with no breakout or breakdown.",
+  narrative: {
+    tone: "neutral",
+    headline:
+      "⚪ Neither side has taken control. The underlying is inside a range, so MIOS is standing aside until clearer signals appear.",
+    statements: [
+      "Neither side is in control.",
+      "Momentum is neutral.",
+      "Price is inside a range.",
+      "Trade quality improving.",
     ],
   },
-  top_candidates: [],
+  dominance: {
+    control: "neutral",
+    buyers_pct: 50,
+    writers_pct: 50,
+    ce_dominance: "Balanced",
+    pe_dominance: "Balanced",
+    control_shift_from: "Neutral",
+    control_shift_to: "Neutral",
+  },
+  qualification: {
+    decision: "NO_TRADE",
+    qualified: false,
+    strike: null,
+    option_type: null,
+    classification: null,
+    confidence: 70,
+    band: "Medium",
+    gates: [
+      {
+        name: "Market Regime",
+        passed: false,
+        reason: "No trend or breakout; market is sideways/choppy.",
+        weight: 30,
+        mandatory: true,
+      },
+      {
+        name: "Options Participation",
+        passed: true,
+        reason: "Long Buildup at 25150 CE.",
+        weight: 30,
+        mandatory: true,
+      },
+      {
+        name: "CE vs PE Control",
+        passed: true,
+        reason: "CE side is in control.",
+        weight: 25,
+        mandatory: true,
+      },
+      {
+        name: "Strike Quality",
+        passed: true,
+        reason: "Liquid and 1 step(s) from ATM.",
+        weight: 15,
+        mandatory: false,
+      },
+    ],
+    failed_gates: ["Market Regime"],
+    reasons: ["OI ↑ 18.0%", "Buyers dominant"],
+    best_candidate: {
+      strike: "25150",
+      option_type: "CE",
+      classification: "long_buildup",
+      qualification: 55,
+      reason: "Good option activity, but market structure has not confirmed yet.",
+    },
+  },
+};
+
+/** A not-connected payload: no session, empty market. */
+export const notConnectedFixture: DashboardResponse = {
+  connection_state: "not_connected",
+  authentication: "NOT_AUTHENTICATED",
+  data_source: "none",
+  market: {
+    spot: null,
+    change: null,
+    change_percent: null,
+    status: "CLOSED",
+    updated_at: null,
+  },
+  narrative: null,
+  dominance: null,
+  qualification: null,
+  context: null,
+  ce_pe: null,
+  option_chain: [],
+  engine: { healthy: false, pipeline_runtime_ms: null, data_age_seconds: null },
 };

@@ -74,7 +74,10 @@ def test_endpoints_serve_seeded_data(api: TestClient) -> None:
 
     recommendation = api.get("/api/v1/market/recommendation")
     assert recommendation.status_code == status.HTTP_200_OK
-    assert "no_trade" in recommendation.json()
+    body = recommendation.json()
+    assert "decision" in body
+    assert "confidence" in body
+    assert "gates" in body
 
     radar = api.get("/api/v1/market/radar")
     assert radar.status_code == status.HTTP_200_OK

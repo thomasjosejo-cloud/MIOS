@@ -13,17 +13,19 @@ data received, classification changes, recommendation changes, and errors.
 import asyncio
 import datetime as dt
 import time
+from collections.abc import Awaitable, Callable
 from decimal import Decimal
 
 from mios.config import Settings
 from mios.core.logging import get_logger
 from mios.db.session import Database
+from mios.integrations.fyers.client import FyersAuthError
 from mios.integrations.fyers.market_data import MarketDataSource
 from mios.schemas.market import (
     Classification,
     ClassificationResult,
     OptionType,
-    RecommendationReport,
+    TradeQualification,
 )
 from mios.services.options_intel import snapshot_repository
 from mios.services.options_intel.option_engine import OptionEngine
@@ -44,17 +46,25 @@ class OptionsIntelEngine:
         store: EngineStore,
         database: Database,
         settings: Settings,
+        *,
+        on_session_expired: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
-        """Wire the orchestrator to its source, store, database, and settings."""
+        """Wire the orchestrator to its source, store, database, and settings.
+
+        `on_session_expired` is invoked once if a poll fails authentication
+        (the Fyers token was rejected mid-session), letting the caller stop the
+        engine and clear the session without coupling this class to auth.
+        """
         self._source = source
         self._store = store
         self._database = database
         self._settings = settings
+        self._on_session_expired = on_session_expired
         self._option_engine = OptionEngine()
         self._task: asyncio.Task[None] | None = None
         self._stopping = asyncio.Event()
         self._previous_classifications: ClassificationMap = {}
-        self._previous_recommendation: RecommendationReport | None = None
+        self._previous_qualification: tuple[str, str, int] | None = None
 
     def start(self) -> None:
         """Launch the polling loop as a background task."""
@@ -90,6 +100,15 @@ class OptionsIntelEngine:
                 await self.poll_once()
             except asyncio.CancelledError:
                 raise
+            except FyersAuthError as error:
+                # The Fyers token was rejected mid-session (expired/revoked):
+                # stop polling and hand off to the caller to clear the session.
+                self._store.last_error = f"{type(error).__name__}: {error}"
+                self._store.engine_running = False
+                logger.warning("Fyers session expired during polling; stopping")
+                if self._on_session_expired is not None:
+                    await self._on_session_expired()
+                return
             except Exception as error:
                 self._store.last_error = f"{type(error).__name__}: {error}"
                 logger.exception("Poll failed; engine will retry")
@@ -104,7 +123,24 @@ class OptionsIntelEngine:
         market_open = await source.get_market_open()
         spot = await source.get_spot()
         option_quotes = await source.get_option_chain()
-        candles = await source.get_candles()
+
+        # History (5-minute candles) is the optional validation step. Its
+        # failure must not stop the engine: quotes and the option chain above
+        # are the required inputs. When history is unavailable we proceed with
+        # no candles — Structure and Momentum degrade to their neutral
+        # "insufficient history" result, so context and recommendations are
+        # still produced. Quotes/chain errors above are still fatal to the poll.
+        try:
+            candles = await source.get_candles()
+            validation_available = True
+        except Exception as error:
+            candles = []
+            validation_available = False
+            logger.warning(
+                "History unavailable; skipping validation, continuing with "
+                "option-chain intelligence",
+                extra={"error": f"{type(error).__name__}: {error}"},
+            )
 
         logger.info(
             "Market data received",
@@ -113,6 +149,7 @@ class OptionsIntelEngine:
                 "strikes": len(option_quotes),
                 "candles": len(candles),
                 "market_open": market_open,
+                "validation": "available" if validation_available else "unavailable",
             },
         )
 
@@ -127,9 +164,14 @@ class OptionsIntelEngine:
         )
         runtime_ms = (time.perf_counter() - started) * 1000
 
-        self._apply_to_store(result, spot_price=spot.ltp, market_open=market_open)
+        self._apply_to_store(
+            result,
+            spot_price=spot.ltp,
+            market_open=market_open,
+            validation_available=validation_available,
+        )
         self._log_classification_changes(result.classifications)
-        self._log_recommendation_change(result.recommendation)
+        self._log_qualification_change(result.qualification)
         await self._persist(result)
 
         self._store.last_pipeline_runtime_ms = runtime_ms
@@ -137,11 +179,17 @@ class OptionsIntelEngine:
         self._store.last_error = None
 
     def _apply_to_store(
-        self, result: PipelineResult, *, spot_price: Decimal, market_open: bool
+        self,
+        result: PipelineResult,
+        *,
+        spot_price: Decimal,
+        market_open: bool,
+        validation_available: bool,
     ) -> None:
         """Copy a pipeline result and metadata into the shared store."""
         store = self._store
         store.previous_spot_price = store.spot_price
+        store.validation_available = validation_available
         store.strike_states = result.strike_states
         store.classifications = result.classifications
         store.unusual = result.unusual
@@ -150,7 +198,7 @@ class OptionsIntelEngine:
         store.structure = result.structure
         store.momentum = result.momentum
         store.context = result.context
-        store.recommendation = result.recommendation
+        store.qualification = result.qualification
         store.spot_price = spot_price
         store.market_open = market_open
 
@@ -175,21 +223,24 @@ class OptionsIntelEngine:
                 )
         self._previous_classifications = current
 
-    def _log_recommendation_change(self, recommendation: RecommendationReport) -> None:
-        """Log when the best CE/PE or no-trade state changes."""
-        previous = self._previous_recommendation
-        if previous is None or _recommendation_signature(
-            previous
-        ) != _recommendation_signature(recommendation):
+    def _log_qualification_change(self, qualification: TradeQualification) -> None:
+        """Log when the qualification decision changes."""
+        signature = (
+            qualification.decision.value,
+            str(qualification.strike),
+            qualification.confidence,
+        )
+        if self._previous_qualification != signature:
             logger.info(
-                "Recommendation changed",
+                "Qualification changed",
                 extra={
-                    "best_ce": _describe(recommendation, OptionType.CE),
-                    "best_pe": _describe(recommendation, OptionType.PE),
-                    "no_trade": recommendation.no_trade.no_trade,
+                    "decision": qualification.decision.value,
+                    "strike": str(qualification.strike),
+                    "confidence": qualification.confidence,
+                    "failed_gates": [g.value for g in qualification.failed_gates],
                 },
             )
-        self._previous_recommendation = recommendation
+        self._previous_qualification = signature
 
     async def _persist(self, result: PipelineResult) -> None:
         """Persist the poll's snapshots, tolerating a disconnected database."""
@@ -203,20 +254,3 @@ class OptionsIntelEngine:
                 symbol=self._settings.NIFTY_SPOT_SYMBOL,
             )
         logger.debug("Persisted snapshots", extra={"rows": count})
-
-
-def _recommendation_signature(report: RecommendationReport) -> tuple[object, ...]:
-    """Return a comparable signature capturing the actionable recommendation."""
-    return (
-        _describe(report, OptionType.CE),
-        _describe(report, OptionType.PE),
-        report.no_trade.no_trade,
-    )
-
-
-def _describe(report: RecommendationReport, side: OptionType) -> str | None:
-    """Return a short description of the best strike for a side, if any."""
-    best = report.best_ce if side is OptionType.CE else report.best_pe
-    if best is None:
-        return None
-    return f"{best.strike} {best.option_type.value} ({best.classification.value})"

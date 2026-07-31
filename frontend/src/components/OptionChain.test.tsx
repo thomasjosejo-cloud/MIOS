@@ -1,9 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { OptionChain } from "@/components/OptionChain";
-import { TopCandidates } from "@/components/TopCandidates";
 import { rowDomId } from "@/lib/rows";
 import { dashboardFixture } from "@/test/fixtures";
 
@@ -43,21 +41,5 @@ describe("OptionChain", () => {
     expect(recommended.className).toContain("bg-accent");
     const notRecommended = screen.getByTestId(rowDomId("25000", "PE"));
     expect(notRecommended.className).not.toContain("bg-accent");
-  });
-});
-
-describe("TopCandidates", () => {
-  it("scrolls to the strike row when a candidate is clicked", async () => {
-    const onSelect = vi.fn();
-    render(
-      <TopCandidates
-        candidates={dashboardFixture.top_candidates}
-        onSelect={onSelect}
-      />,
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: /25200/ }));
-
-    expect(onSelect).toHaveBeenCalledWith(rowDomId("25200", "CE"));
   });
 });

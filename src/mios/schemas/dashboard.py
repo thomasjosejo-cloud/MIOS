@@ -1,10 +1,10 @@
 """Dashboard aggregation contract.
 
-A single response bundling everything a live dashboard needs, assembled from
-the outputs of one pipeline execution already held in the engine store. Nested
-sections reuse the existing `mios.schemas.market` schemas unchanged; this module
-only adds the envelope and the dashboard-specific market/option-chain/engine
-projections.
+A single response bundling everything a decision-centric dashboard needs,
+assembled from one pipeline execution held in the engine store. Nested sections
+reuse the existing `mios.schemas.market` schemas unchanged; this module adds the
+envelope plus the presentation projections (narrative, dominance, market header,
+option-chain rows, engine status).
 """
 
 import datetime as dt
@@ -12,15 +12,14 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from mios.config.constants import AuthStatus, DataSource
+from mios.config.constants import AuthStatus, ConnectionState, DataSource
 from mios.schemas.market import (
     CePeComparison,
     Classification,
+    ControllingSide,
     MarketContext,
-    NoTradeDecision,
     OptionType,
-    RecommendationReport,
-    StrikeRecommendation,
+    TradeQualification,
 )
 
 
@@ -32,6 +31,27 @@ class MarketSection(BaseModel):
     change_percent: float | None
     status: str  # "LIVE" | "CLOSED"
     updated_at: dt.datetime | None
+
+
+class MarketNarrative(BaseModel):
+    """A plain-language story of the market for the top-of-dashboard banner."""
+
+    tone: str  # "bullish" | "bearish" | "neutral"
+    headline: str
+    #: The "what is happening now" bullet lines.
+    statements: list[str]
+
+
+class MarketDominance(BaseModel):
+    """Who controls the market, derived from the existing CE/PE analysis."""
+
+    control: ControllingSide
+    buyers_pct: int
+    writers_pct: int
+    ce_dominance: str  # "Strong" | "Balanced" | "Weak"
+    pe_dominance: str
+    control_shift_from: str
+    control_shift_to: str
 
 
 class OptionChainRow(BaseModel):
@@ -57,17 +77,20 @@ class EngineStatus(BaseModel):
 
 
 class DashboardResponse(BaseModel):
-    """Everything the dashboard needs, from one pipeline execution."""
+    """Everything the decision-centric dashboard needs, from one pipeline run."""
 
+    #: Fyers connection lifecycle state — exactly one of the five values.
+    connection_state: ConnectionState
     #: Fyers authentication state — CONNECTED or NOT_AUTHENTICATED.
     authentication: AuthStatus
     #: Which source is feeding the engine (fyers / simulator / none).
     data_source: DataSource
     market: MarketSection
-    recommendation: RecommendationReport | None
-    no_trade: NoTradeDecision | None
+    narrative: MarketNarrative | None
+    dominance: MarketDominance | None
+    qualification: TradeQualification | None
     context: MarketContext | None
     ce_pe: CePeComparison | None
-    top_candidates: list[StrikeRecommendation]
+    #: Trimmed to the five CE and five PE strikes nearest the money.
     option_chain: list[OptionChainRow]
     engine: EngineStatus

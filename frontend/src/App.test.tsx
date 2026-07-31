@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "@/App";
-import { dashboardFixture } from "@/test/fixtures";
+import { dashboardFixture, notConnectedFixture } from "@/test/fixtures";
 import { renderWithClient } from "@/test/renderWithClient";
 
 function mockFetchOnce(payload: unknown, ok = true): void {
@@ -35,16 +35,32 @@ describe("App", () => {
     mockFetchOnce(dashboardFixture);
     renderWithClient(<App />);
 
-    expect(await screen.findByText("BUY")).toBeInTheDocument();
+    expect(await screen.findByText("Trade Qualified")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Market Context" }),
+      screen.getByRole("heading", { name: "Market Dominance" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Option Chain" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Evidence" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "What Is Happening Now" }),
+    ).toBeInTheDocument();
     // Evidence items are rendered exactly as received from the API.
-    expect(screen.getByText("Buyers dominant.")).toBeInTheDocument();
+    expect(screen.getByText("Buyers dominant")).toBeInTheDocument();
+  });
+
+  it("shows the connection gate when not connected to Fyers", async () => {
+    mockFetchOnce(notConnectedFixture);
+    renderWithClient(<App />);
+
+    expect(
+      await screen.findByText("Not Connected to Fyers"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Connect to Fyers" }),
+    ).toHaveAttribute("href", "/api/v1/fyers/login");
+    // The dashboard (qualified trade) is not shown while disconnected.
+    expect(screen.queryByText("Trade Qualified")).not.toBeInTheDocument();
   });
 
   it("shows the error state when the request fails", async () => {

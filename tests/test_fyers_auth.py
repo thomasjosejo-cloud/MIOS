@@ -273,10 +273,32 @@ def test_callback_success_connects_engine(
         "mios.services.fyers_auth.flow.validate_token", AsyncMock(return_value=True)
     )
 
-    response = client.get("/api/v1/fyers/callback?auth_code=code123&s=ok")
+    response = client.get("/api/v1/fyers/callback?auth_code=code123&s=ok&json=1")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["status"] == "connected"
+    connect.assert_awaited_once()
+
+
+def test_callback_success_redirects_to_ui_by_default(
+    oauth_client: tuple[TestClient, FyersAuthManager, AsyncMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _, connect = oauth_client
+    monkeypatch.setattr(
+        "mios.services.fyers_auth.flow.exchange_auth_code",
+        AsyncMock(return_value="ACCESS-TOKEN"),
+    )
+    monkeypatch.setattr(
+        "mios.services.fyers_auth.flow.validate_token", AsyncMock(return_value=True)
+    )
+
+    response = client.get(
+        "/api/v1/fyers/callback?auth_code=code123", follow_redirects=False
+    )
+
+    assert response.status_code == status.HTTP_303_SEE_OTHER
+    assert response.headers["location"] == "/"
     connect.assert_awaited_once()
 
 
@@ -340,3 +362,47 @@ def test_status_endpoint_reports_not_authenticated(
 
     assert body["authentication"] == "NOT_AUTHENTICATED"
     assert body["client_id"] is None
+
+
+# --- connection state (Sprint 9) ---------------------------------------------
+
+
+async def test_expiry_handler_returns_to_expired_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from unittest.mock import MagicMock
+
+    from mios.config.constants import ConnectionState, DataSource
+    from mios.services.options_intel import runtime
+    from mios.services.options_intel.store import EngineStore
+
+    fresh = EngineStore()
+    fresh.authenticated = True
+    fresh.data_source = DataSource.FYERS
+    fresh.connection_state = ConnectionState.CONNECTED
+    monkeypatch.setattr(runtime, "store", fresh)
+    manager = MagicMock()
+    monkeypatch.setattr(runtime, "get_auth_manager", lambda: manager)
+
+    await runtime._handle_expiry()
+
+    assert fresh.connection_state is ConnectionState.SESSION_EXPIRED
+    assert fresh.authenticated is False
+    assert fresh.data_source is DataSource.NONE
+    manager.logout.assert_called_once()
+
+
+def test_dashboard_exposes_connection_state(
+    oauth_client: tuple[TestClient, FyersAuthManager, AsyncMock],
+) -> None:
+    client, _, _ = oauth_client
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["connection_state"] in {
+        "connected",
+        "connecting",
+        "session_expired",
+        "authentication_failed",
+        "not_connected",
+    }

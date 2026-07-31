@@ -56,7 +56,7 @@ export function OptionChain({
     <Card id="option-chain" className="scroll-mt-16 overflow-hidden">
       <CardHeader>
         <CardTitle>Option Chain</CardTitle>
-        <span className="text-xs text-muted">{rows.length} strikes</span>
+        <span className="text-xs text-muted">Nearest {rows.length} around ATM</span>
       </CardHeader>
       <div className="max-h-[480px] overflow-auto">
         <table className="w-full border-collapse text-sm">

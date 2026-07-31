@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 
 from mios.config import Settings, get_settings
+from mios.config.constants import ConnectionState
 from mios.core.logging import get_logger
 from mios.integrations.fyers.client import FyersAPIError, FyersAuthError
 from mios.services.fyers_auth import (
@@ -23,7 +24,10 @@ from mios.services.fyers_auth import (
     FyersNotConfiguredError,
     get_auth_manager,
 )
-from mios.services.options_intel.runtime import connect_authenticated_engine
+from mios.services.options_intel.runtime import (
+    connect_authenticated_engine,
+    set_connection_state,
+)
 
 logger = get_logger(__name__)
 
@@ -50,7 +54,7 @@ async def login(
     return RedirectResponse(url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
-@router.get("/callback")
+@router.get("/callback", response_model=None)
 async def callback(
     manager: ManagerDep,
     settings: SettingsDep,
@@ -58,9 +62,16 @@ async def callback(
     code: Annotated[str | None, Query()] = None,
     s: Annotated[str | None, Query()] = None,
     state: Annotated[str | None, Query()] = None,
-) -> dict[str, object]:
-    """Receive the Fyers redirect, exchange the auth code, and connect the engine."""
+    json: bool = False,
+) -> RedirectResponse | dict[str, object]:
+    """Receive the Fyers redirect, exchange the auth code, and connect the engine.
+
+    On success the browser is redirected back to the dashboard UI so it updates
+    automatically. Pass `?json=1` to receive a JSON body instead (used by tests
+    and programmatic callers).
+    """
     if s == "error":
+        set_connection_state(ConnectionState.AUTHENTICATION_FAILED)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Fyers login was cancelled or returned an error",
@@ -73,30 +84,40 @@ async def callback(
             detail="Missing auth_code in callback",
         )
 
+    set_connection_state(ConnectionState.CONNECTING)
     try:
         session = await manager.complete_login(received)
     except FyersNotConfiguredError as error:
+        set_connection_state(ConnectionState.AUTHENTICATION_FAILED)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
         ) from error
     except FyersAuthError as error:
+        set_connection_state(ConnectionState.AUTHENTICATION_FAILED)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error)
         ) from error
     except FyersAPIError as error:
+        set_connection_state(ConnectionState.AUTHENTICATION_FAILED)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)
         ) from error
 
-    # Connect the engine automatically now that we are authenticated.
+    # Connect the engine automatically now that we are authenticated; this sets
+    # the connection state to CONNECTED and begins polling without a restart.
     await connect_authenticated_engine(settings)
     logger.info("Fyers authenticated; engine connecting")
 
-    return {
-        "status": "connected",
-        "client_id": session.client_id,
-        "expires_at": session.expires_at.isoformat(),
-    }
+    if json:
+        return {
+            "status": "connected",
+            "client_id": session.client_id,
+            "expires_at": session.expires_at.isoformat(),
+        }
+    return RedirectResponse(
+        settings.FYERS_POST_LOGIN_REDIRECT,
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.get("/status")

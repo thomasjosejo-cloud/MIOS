@@ -24,24 +24,65 @@ export interface MarketSection {
   updated_at: string | null;
 }
 
-export interface StrikeRecommendation {
+export type TradeDecision = "BUY_CE" | "BUY_PE" | "NO_TRADE";
+
+export type ConfidenceBand =
+  | "Very Low"
+  | "Low"
+  | "Medium"
+  | "High"
+  | "Very High";
+
+export type GateName =
+  | "Market Regime"
+  | "Options Participation"
+  | "CE vs PE Control"
+  | "Strike Quality";
+
+export interface QualificationGate {
+  name: GateName;
+  passed: boolean;
+  reason: string;
+  weight: number;
+  mandatory: boolean;
+}
+
+export interface BestCandidate {
   strike: string;
   option_type: OptionType;
   classification: Classification;
-  evidence: string[];
+  qualification: number;
   reason: string;
 }
 
-export interface NoTradeDecision {
-  no_trade: boolean;
+export interface TradeQualification {
+  decision: TradeDecision;
+  qualified: boolean;
+  strike: string | null;
+  option_type: OptionType | null;
+  classification: Classification | null;
+  confidence: number;
+  band: ConfidenceBand;
+  gates: QualificationGate[];
+  failed_gates: GateName[];
   reasons: string[];
+  best_candidate: BestCandidate | null;
 }
 
-export interface RecommendationReport {
-  best_ce: StrikeRecommendation | null;
-  best_pe: StrikeRecommendation | null;
-  top_candidates: StrikeRecommendation[];
-  no_trade: NoTradeDecision;
+export interface MarketNarrative {
+  tone: string; // "bullish" | "bearish" | "neutral"
+  headline: string;
+  statements: string[];
+}
+
+export interface MarketDominance {
+  control: ControllingSide;
+  buyers_pct: number;
+  writers_pct: number;
+  ce_dominance: string; // "Strong" | "Balanced" | "Weak"
+  pe_dominance: string;
+  control_shift_from: string;
+  control_shift_to: string;
 }
 
 export interface MarketContext {
@@ -87,13 +128,26 @@ export interface EngineStatus {
   data_age_seconds: number | null;
 }
 
+export type ConnectionState =
+  | "connected"
+  | "connecting"
+  | "session_expired"
+  | "authentication_failed"
+  | "not_connected";
+
+export type AuthStatus = "CONNECTED" | "NOT_AUTHENTICATED";
+export type DataSource = "fyers" | "simulator" | "none";
+
 export interface DashboardResponse {
+  connection_state: ConnectionState;
+  authentication: AuthStatus;
+  data_source: DataSource;
   market: MarketSection;
-  recommendation: RecommendationReport | null;
-  no_trade: NoTradeDecision | null;
+  narrative: MarketNarrative | null;
+  dominance: MarketDominance | null;
+  qualification: TradeQualification | null;
   context: MarketContext | null;
   ce_pe: CePeComparison | null;
-  top_candidates: StrikeRecommendation[];
   option_chain: OptionChainRow[];
   engine: EngineStatus;
 }

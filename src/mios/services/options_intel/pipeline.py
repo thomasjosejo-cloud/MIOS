@@ -18,9 +18,9 @@ from mios.schemas.market import (
     MomentumReport,
     OptionQuote,
     RadarReport,
-    RecommendationReport,
     StrikeState,
     StructureState,
+    TradeQualification,
     UnusualActivity,
 )
 from mios.services.options_intel import (
@@ -35,13 +35,10 @@ from mios.services.options_intel import (
     momentum as momentum_engine,
 )
 from mios.services.options_intel import (
-    no_trade as no_trade_engine,
+    qualification as qualification_engine,
 )
 from mios.services.options_intel import (
     radar as radar_engine,
-)
-from mios.services.options_intel import (
-    recommendation as recommendation_engine,
 )
 from mios.services.options_intel import (
     structure as structure_engine,
@@ -61,7 +58,7 @@ class PipelineResult:
     structure: StructureState
     momentum: MomentumReport
     context: MarketContext
-    recommendation: RecommendationReport
+    qualification: TradeQualification
 
 
 def run_pipeline(
@@ -108,35 +105,17 @@ def run_pipeline(
     context = context_engine.build_context(
         cepe, structure, momentum, classifications, spot=spot
     )
-    # Rank first so the No-Trade Engine can see the best CE/PE scores, then run
-    # No-Trade, then assemble the report from both. The Pipeline is the only
-    # orchestrator: Recommendation and No-Trade never call each other.
-    ranking = recommendation_engine.rank_candidates(
+    # The Trade Qualification Engine makes the final decision from the four
+    # gates, reading the upstream outputs only.
+    qualification = qualification_engine.qualify(
         classifications,
         unusual,
         strike_states,
         structure,
-        momentum,
         context,
-        min_conviction=settings.RECOMMENDATION_MIN_EVIDENCE,
-        min_oi=settings.RECOMMENDATION_MIN_OI,
-        min_volume=settings.RECOMMENDATION_MIN_VOLUME,
-        max_staleness_seconds=settings.RECOMMENDATION_MAX_STALENESS_SECONDS,
-    )
-    no_trade = no_trade_engine.evaluate(
-        context,
-        structure,
-        momentum,
-        ce_rank=ranking.best_ce_score,
-        pe_rank=ranking.best_pe_score,
-        rank_tie_margin=settings.NO_TRADE_RANK_TIE_MARGIN,
-        min_reasons=settings.NO_TRADE_MIN_REASONS,
-    )
-    recommendation = recommendation_engine.build_report(
-        ranking,
-        no_trade,
-        top_n=settings.RECOMMENDATION_TOP_N,
-        min_conviction=settings.RECOMMENDATION_MIN_EVIDENCE,
+        cepe,
+        spot=spot,
+        settings=settings,
     )
 
     return PipelineResult(
@@ -148,5 +127,5 @@ def run_pipeline(
         structure=structure,
         momentum=momentum,
         context=context,
-        recommendation=recommendation,
+        qualification=qualification,
     )

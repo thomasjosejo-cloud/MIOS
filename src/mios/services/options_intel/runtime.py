@@ -12,7 +12,7 @@ callback completes. The deterministic simulator is used only when
 """
 
 from mios.config import Settings
-from mios.config.constants import DataSource
+from mios.config.constants import ConnectionState, DataSource
 from mios.core.logging import get_logger
 from mios.db.session import Database, database
 from mios.integrations.fyers.client import FyersClient
@@ -32,6 +32,11 @@ _engine: OptionsIntelEngine | None = None
 _fyers_client: FyersClient | None = None
 
 
+def set_connection_state(state: ConnectionState) -> None:
+    """Update the connection state reported on the dashboard."""
+    store.connection_state = state
+
+
 async def _resolve_source(settings: Settings) -> MarketDataSource | None:
     """Choose the market data source, or `None` when authentication is pending."""
     global _fyers_client
@@ -41,12 +46,15 @@ async def _resolve_source(settings: Settings) -> MarketDataSource | None:
         _fyers_client = manager.build_client()
         store.authenticated = True
         store.data_source = DataSource.FYERS
+        store.connection_state = ConnectionState.CONNECTED
         logger.info("Options engine using live Fyers data source")
         return FyersMarketDataSource(_fyers_client, settings)
 
     if settings.FYERS_USE_SIMULATOR:
         store.authenticated = False
         store.data_source = DataSource.SIMULATOR
+        # The simulator is not a Fyers connection; report it honestly.
+        store.connection_state = ConnectionState.NOT_CONNECTED
         logger.warning("FYERS_USE_SIMULATOR set; engine using simulated data")
         return SimulatedMarketDataSource(settings)
 
@@ -76,12 +84,18 @@ async def start_engine(settings: Settings, db: Database | None = None) -> None:
 
     source = await _resolve_source(settings)
     if source is None:
+        # Preserve an explicit SESSION_EXPIRED/AUTHENTICATION_FAILED set by the
+        # caller; only default to NOT_CONNECTED from a neutral state.
+        if store.connection_state is ConnectionState.CONNECTED:
+            store.connection_state = ConnectionState.NOT_CONNECTED
         logger.info(
             "Options engine enabled; awaiting Fyers login at /api/v1/fyers/login"
         )
         return
 
-    _engine = OptionsIntelEngine(source, store, db or database, settings)
+    _engine = OptionsIntelEngine(
+        source, store, db or database, settings, on_session_expired=_handle_expiry
+    )
     _engine.start()
 
 
@@ -91,6 +105,26 @@ async def connect_authenticated_engine(
     """(Re)start the engine after a successful login, replacing any prior source."""
     await stop_engine()
     await start_engine(settings, db)
+
+
+async def _handle_expiry() -> None:
+    """Handle a mid-session token expiry: clear the session, return to prompt.
+
+    Invoked by the engine loop after a poll fails authentication. The engine
+    has already stopped its own loop, so this only tears down shared state so a
+    fresh login can reconnect.
+    """
+    global _engine, _fyers_client
+
+    get_auth_manager().logout()
+    store.authenticated = False
+    store.data_source = DataSource.NONE
+    store.connection_state = ConnectionState.SESSION_EXPIRED
+    _engine = None
+    if _fyers_client is not None:
+        await _fyers_client.aclose()
+        _fyers_client = None
+    logger.warning("Fyers session cleared; awaiting re-login")
 
 
 async def stop_engine() -> None:

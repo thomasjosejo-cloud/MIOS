@@ -66,14 +66,15 @@ def test_dashboard_returns_full_envelope(
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert set(body) == {
+        "connection_state",
         "authentication",
         "data_source",
         "market",
-        "recommendation",
-        "no_trade",
+        "narrative",
+        "dominance",
+        "qualification",
         "context",
         "ce_pe",
-        "top_candidates",
         "option_chain",
         "engine",
     }
@@ -91,6 +92,35 @@ def test_dashboard_matches_response_schema(
     parsed = DashboardResponse.model_validate(body)
     assert parsed.market.status in ("LIVE", "CLOSED")
     assert parsed.option_chain
+
+
+def test_option_chain_trimmed_to_five_per_side(
+    fresh_store: EngineStore,
+) -> None:
+    # Sprint 10.1: the chain shows at most 5 CE + 5 PE around the money, even
+    # when the engine tracks many more strikes.
+    import asyncio
+
+    async def run() -> None:
+        settings = Settings(OPTION_STRIKE_COUNT=21, CANDLE_LOOKBACK_COUNT=30)
+        db = MagicMock()
+        db.is_connected = False
+        engine = OptionsIntelEngine(
+            SimulatedMarketDataSource(settings), fresh_store, db, settings
+        )
+        fresh_store.engine_running = True
+        await engine.poll_once()
+        await engine.poll_once()
+
+    asyncio.run(run())
+
+    dashboard = build_dashboard(fresh_store)
+    ce = [r for r in dashboard.option_chain if r.option_type.value == "CE"]
+    pe = [r for r in dashboard.option_chain if r.option_type.value == "PE"]
+
+    assert len(dashboard.option_chain) <= 10
+    assert len(ce) <= 5
+    assert len(pe) <= 5
 
 
 def test_option_chain_rows_have_required_fields(
@@ -160,10 +190,10 @@ def test_empty_market_returns_well_formed_envelope(api: TestClient) -> None:
     assert body["market"]["spot"] is None
     assert body["market"]["change"] is None
     assert body["market"]["status"] == "CLOSED"
-    assert body["recommendation"] is None
-    assert body["no_trade"] is None
+    assert body["qualification"] is None
+    assert body["narrative"] is None
+    assert body["dominance"] is None
     assert body["option_chain"] == []
-    assert body["top_candidates"] == []
     assert body["engine"]["healthy"] is False
     assert body["engine"]["data_age_seconds"] is None
 

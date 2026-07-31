@@ -1,12 +1,17 @@
 import { cn } from "@/lib/utils";
 import {
+  CONNECTION_META,
+  toneClass,
+  toneDotClass,
+} from "@/lib/connection";
+import {
   formatClock,
   formatDecimal,
   formatPercent,
   formatSignedDecimal,
   signOf,
 } from "@/lib/format";
-import type { MarketSection } from "@/types/dashboard";
+import type { ConnectionState, MarketSection } from "@/types/dashboard";
 
 function directionClass(sign: -1 | 0 | 1): string {
   if (sign > 0) return "text-bullish";
@@ -14,9 +19,16 @@ function directionClass(sign: -1 | 0 | 1): string {
   return "text-muted";
 }
 
-export function Header({ market }: { market: MarketSection }) {
+export function Header({
+  market,
+  connection,
+}: {
+  market: MarketSection;
+  connection: ConnectionState;
+}) {
   const isLive = market.status === "LIVE";
   const changeSign = signOf(market.change);
+  const conn = CONNECTION_META[connection];
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
@@ -24,16 +36,25 @@ export function Header({ market }: { market: MarketSection }) {
         <div className="flex items-center gap-2 md:hidden">
           <span className="text-sm font-semibold tracking-wide">MIOS</span>
         </div>
-        <div className="ml-auto flex items-center gap-2 text-xs font-medium">
-          <span
-            className={cn(
-              "h-2 w-2 rounded-full",
-              isLive ? "live-dot bg-bullish" : "bg-muted",
-            )}
-            aria-hidden
-          />
-          <span className={isLive ? "text-bullish" : "text-muted"}>
-            {market.status}
+        <div className="ml-auto flex items-center gap-4 text-xs font-medium">
+          <span className="flex items-center gap-2" title="Fyers connection">
+            <span
+              className={cn("h-2 w-2 rounded-full", toneDotClass(conn.tone))}
+              aria-hidden
+            />
+            <span className={toneClass(conn.tone)}>{conn.label}</span>
+          </span>
+          <span className="flex items-center gap-2" title="Market session">
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full",
+                isLive ? "live-dot bg-bullish" : "bg-muted",
+              )}
+              aria-hidden
+            />
+            <span className={isLive ? "text-bullish" : "text-muted"}>
+              {market.status}
+            </span>
           </span>
         </div>
       </div>

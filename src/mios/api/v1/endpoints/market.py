@@ -17,8 +17,8 @@ from mios.schemas.market import (
     MarketStatusReport,
     OptionsReport,
     RadarReport,
-    RecommendationReport,
     StructureReport,
+    TradeQualification,
 )
 from mios.services.options_intel.market_hours import is_market_open
 from mios.services.options_intel.runtime import get_store
@@ -62,12 +62,12 @@ async def market_options(store: StoreDep) -> OptionsReport:
     )
 
 
-@router.get("/recommendation", response_model=RecommendationReport)
-async def market_recommendation(store: StoreDep) -> RecommendationReport:
-    """Return the best CE/PE, top candidates, and the no-trade decision."""
-    _require(store.recommendation)
-    assert store.recommendation is not None
-    return store.recommendation
+@router.get("/recommendation", response_model=TradeQualification)
+async def market_recommendation(store: StoreDep) -> TradeQualification:
+    """Return the trade qualification: gates, confidence, and the decision."""
+    _require(store.qualification)
+    assert store.qualification is not None
+    return store.qualification
 
 
 @router.get("/radar", response_model=RadarReport)

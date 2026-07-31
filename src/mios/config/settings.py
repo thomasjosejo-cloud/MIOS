@@ -149,6 +149,9 @@ class Settings(BaseSettings):
     #: Dev/test only: drive the engine from the deterministic simulator instead
     #: of waiting for a Fyers login. Off in production.
     FYERS_USE_SIMULATOR: bool = False
+    #: Where the OAuth callback sends the browser after login, so the user
+    #: returns to the dashboard UI. Defaults to the app root.
+    FYERS_POST_LOGIN_REDIRECT: str = "/"
 
     # --- Instrument scope --------------------------------------------------------
     NIFTY_SPOT_SYMBOL: str = "NSE:NIFTY50-INDEX"
@@ -203,26 +206,15 @@ class Settings(BaseSettings):
     # --- Radar -------------------------------------------------------------------
     RADAR_TOP_N: int = Field(default=5, ge=1)
 
-    # --- Recommendation engine ---------------------------------------------------
-    RECOMMENDATION_TOP_N: int = Field(default=5, ge=1)
-    #: Minimum conviction tier (0-4) a candidate must reach before it can be
-    #: named the best CE/PE. Below this, the No-Trade Engine decides.
-    RECOMMENDATION_MIN_EVIDENCE: int = Field(default=2, ge=1)
-    #: Stage-1 liquidity floors: a candidate below either is rejected outright.
-    #: Default 0 keeps every strike eligible (no behaviour change) until tuned.
-    RECOMMENDATION_MIN_OI: int = Field(default=0, ge=0)
-    RECOMMENDATION_MIN_VOLUME: int = Field(default=0, ge=0)
-    #: Stage-1 staleness floor in seconds since a strike last updated; 0 disables
-    #: the check so nothing is rejected for staleness until tuned.
-    RECOMMENDATION_MAX_STALENESS_SECONDS: float = Field(default=0.0, ge=0)
-
-    # --- No-Trade engine -----------------------------------------------------
-    #: Rank gap (out of the evidence-factor count) below which the best CE and
-    #: best PE are considered conflicting rather than one side leading.
-    NO_TRADE_RANK_TIE_MARGIN: int = Field(default=1, ge=0)
-    #: Number of independent negative conditions required before the engine
-    #: declares NO TRADE, so a single flaky signal cannot trigger it alone.
-    NO_TRADE_MIN_REASONS: int = Field(default=2, ge=1)
+    # --- Trade Qualification engine ----------------------------------------------
+    # Gate 4 (Strike Quality) thresholds. The other three gates read structure,
+    # classification, and CE/PE outputs directly and need no configuration.
+    #: A strike below either liquidity floor fails Strike Quality.
+    STRIKE_QUALITY_MIN_OI: int = Field(default=0, ge=0)
+    STRIKE_QUALITY_MIN_VOLUME: int = Field(default=0, ge=0)
+    #: A strike more than this many steps from the at-the-money strike fails
+    #: Strike Quality (too far to be reliably tradable).
+    STRIKE_QUALITY_MAX_ATM_STEPS: int = Field(default=8, ge=1)
 
     @field_validator("MARKET_OPEN_TIME", "MARKET_CLOSE_TIME")
     @classmethod

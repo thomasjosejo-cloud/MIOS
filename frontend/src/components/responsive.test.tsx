@@ -19,7 +19,7 @@ describe("responsive layout", () => {
 
     for (const label of [
       "Dashboard",
-      "Recommendation",
+      "Trade Status",
       "Option Chain",
       "Engine Status",
     ]) {

@@ -66,6 +66,20 @@ class AuthStatus(StrEnum):
     NOT_AUTHENTICATED = "NOT_AUTHENTICATED"
 
 
+class ConnectionState(StrEnum):
+    """The Fyers connection lifecycle state shown on the dashboard.
+
+    Exactly one of these is always reported so the UI can render a single,
+    unambiguous connection status.
+    """
+
+    CONNECTED = "connected"
+    CONNECTING = "connecting"
+    SESSION_EXPIRED = "session_expired"
+    AUTHENTICATION_FAILED = "authentication_failed"
+    NOT_CONNECTED = "not_connected"
+
+
 class DataSource(StrEnum):
     """Which market data source currently drives the engine."""
 

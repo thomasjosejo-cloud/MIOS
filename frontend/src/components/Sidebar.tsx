@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { id: "top", label: "Dashboard", icon: LayoutDashboard },
-  { id: "recommendation", label: "Recommendation", icon: Target },
+  { id: "qualification", label: "Trade Status", icon: Target },
   { id: "option-chain", label: "Option Chain", icon: ListTree },
   { id: "engine-status", label: "Engine Status", icon: Activity },
 ] as const;
