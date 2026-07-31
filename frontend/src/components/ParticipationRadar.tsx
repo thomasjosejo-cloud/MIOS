@@ -1,25 +1,18 @@
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClassificationChip } from "@/components/ClassificationChip";
 import { Badge } from "@/components/ui/badge";
-import { formatPercent, labelize } from "@/lib/format";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Classification, OptionType, ParticipationRow } from "@/types/dashboard";
+import type { OptionType, ParticipationRow } from "@/types/dashboard";
 
-// Participation Radar — answers "which strikes deserve attention right now?".
+// Participation Radar — answers "which strikes deserve attention first?".
 // Ranking and every value come from the backend (Radar engine's OI-addition
-// order + the Option Engine's percentage changes). The frontend only renders,
+// order + the Option Engine's percentage changes). The frontend only renders
 // and drives strike selection when a row is clicked.
 
-function classTone(c: Classification | null): string {
-  switch (c) {
-    case "long_buildup":
-    case "short_covering":
-      return "text-bullish";
-    case "short_buildup":
-    case "long_unwinding":
-      return "text-bearish";
-    default:
-      return "text-muted";
-  }
+export interface SelectedStrike {
+  strike: string;
+  option_type: OptionType;
 }
 
 function pctTone(value: number | null): string {
@@ -29,9 +22,24 @@ function pctTone(value: number | null): string {
   return "text-muted";
 }
 
-export interface SelectedStrike {
-  strike: string;
-  option_type: OptionType;
+/** A compact signed magnitude bar + value, centred on zero. */
+function PctCell({ value, max }: { value: number | null; max: number }) {
+  const magnitude = value === null ? 0 : Math.min(Math.abs(value) / (max || 1), 1);
+  const up = (value ?? 0) >= 0;
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <span className="hidden h-1.5 w-14 overflow-hidden rounded-full bg-border sm:block">
+        <span
+          className={cn("block h-full rounded-full", up ? "bg-bullish" : "bg-bearish")}
+          style={{ width: `${magnitude * 100}%` }}
+          aria-hidden
+        />
+      </span>
+      <span className={cn("w-16 text-right font-semibold tabular-nums", pctTone(value))}>
+        {formatPercent(value)}
+      </span>
+    </div>
+  );
 }
 
 export function ParticipationRadar({
@@ -44,6 +52,8 @@ export function ParticipationRadar({
   onSelect: (s: SelectedStrike) => void;
 }) {
   const maxOi = rows.reduce((m, r) => Math.max(m, Math.abs(r.oi_change_pct ?? 0)), 0);
+  const maxPrem = rows.reduce((m, r) => Math.max(m, Math.abs(r.premium_change_pct ?? 0)), 0);
+  const maxVol = rows.reduce((m, r) => Math.max(m, Math.abs(r.volume_change_pct ?? 0)), 0);
 
   return (
     <Card id="participation" className="scroll-mt-16 overflow-hidden">
@@ -53,7 +63,14 @@ export function ParticipationRadar({
       </CardHeader>
 
       {rows.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-muted">No participation yet.</p>
+        <div className="px-4 py-10 text-center">
+          <p className="text-sm font-medium text-foreground">
+            No meaningful participation detected yet.
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Waiting for live market participation to build.
+          </p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
@@ -72,9 +89,7 @@ export function ParticipationRadar({
                 const isSelected =
                   selected?.strike === row.strike &&
                   selected?.option_type === row.option_type;
-                const width = maxOi
-                  ? `${(Math.abs(row.oi_change_pct ?? 0) / maxOi) * 100}%`
-                  : "0%";
+                const isTop = row.rank === 1;
                 return (
                   <tr
                     key={`${row.strike}-${row.option_type}`}
@@ -83,45 +98,52 @@ export function ParticipationRadar({
                     }
                     className={cn(
                       "cursor-pointer border-b border-border/60 tabular-nums transition-colors",
-                      isSelected ? "bg-accent/15" : "hover:bg-border/40",
+                      // Selection wins; the rank-1 row gets a persistent tint.
+                      isSelected
+                        ? "bg-accent/20 ring-1 ring-inset ring-accent"
+                        : isTop
+                          ? "bg-bullish/[0.06] hover:bg-bullish/10"
+                          : "hover:bg-border/50",
                     )}
                   >
-                    <td className="px-3 py-2 font-semibold text-muted">{row.rank}</td>
-                    <td className="whitespace-nowrap px-3 py-2">
-                      <span className="mr-2 font-semibold">{row.strike}</span>
+                    <td className="px-3 py-3">
+                      <span
+                        className={cn(
+                          "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                          isTop
+                            ? "bg-accent text-white"
+                            : "bg-border/70 text-muted",
+                        )}
+                      >
+                        {row.rank}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <span
+                        className={cn(
+                          "mr-2 font-bold tabular-nums",
+                          isTop ? "text-lg text-foreground" : "text-foreground",
+                        )}
+                      >
+                        {row.strike}
+                      </span>
                       <Badge
                         variant={row.option_type === "CE" ? "bullish" : "bearish"}
                       >
                         {row.option_type}
                       </Badge>
                     </td>
-                    <td className={cn("px-3 py-2", classTone(row.classification))}>
-                      {row.classification ? labelize(row.classification) : "—"}
+                    <td className="px-3 py-3">
+                      <ClassificationChip classification={row.classification} />
                     </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="hidden h-1 w-16 overflow-hidden rounded-full bg-border sm:block">
-                          <span
-                            className="block h-full bg-accent"
-                            style={{ width }}
-                            aria-hidden
-                          />
-                        </span>
-                        <span
-                          className={cn(
-                            "w-16 text-right font-semibold",
-                            pctTone(row.oi_change_pct),
-                          )}
-                        >
-                          {formatPercent(row.oi_change_pct)}
-                        </span>
-                      </div>
+                    <td className="px-3 py-3">
+                      <PctCell value={row.oi_change_pct} max={maxOi} />
                     </td>
-                    <td className={cn("px-3 py-2 text-right", pctTone(row.premium_change_pct))}>
-                      {formatPercent(row.premium_change_pct)}
+                    <td className="px-3 py-3">
+                      <PctCell value={row.premium_change_pct} max={maxPrem} />
                     </td>
-                    <td className={cn("px-3 py-2 text-right", pctTone(row.volume_change_pct))}>
-                      {formatPercent(row.volume_change_pct)}
+                    <td className="px-3 py-3">
+                      <PctCell value={row.volume_change_pct} max={maxVol} />
                     </td>
                   </tr>
                 );

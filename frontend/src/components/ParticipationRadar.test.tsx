@@ -37,11 +37,13 @@ describe("ParticipationRadar", () => {
     expect(onSelect).toHaveBeenCalledWith({ strike: "25150", option_type: "CE" });
   });
 
-  it("shows an empty state when there is no participation", () => {
+  it("shows a polished empty state when there is no participation", () => {
     render(
       <ParticipationRadar rows={[]} selected={null} onSelect={() => {}} />,
     );
 
-    expect(screen.getByText("No participation yet.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No meaningful participation detected yet."),
+    ).toBeInTheDocument();
   });
 });

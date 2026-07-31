@@ -105,8 +105,9 @@ export function OptionChain({
                   className={cn(
                     "scroll-mt-14 border-b border-border/60 tabular-nums transition-colors",
                     marker?.row,
-                    isSelected && "ring-1 ring-inset ring-accent bg-accent/10",
-                    "hover:bg-border/40",
+                    isSelected
+                      ? "bg-accent/20 ring-2 ring-inset ring-accent"
+                      : "hover:bg-border/40",
                   )}
                 >
                   <Cell className="font-semibold">{row.strike}</Cell>
@@ -158,6 +159,10 @@ export function OptionChain({
                       >
                         <span aria-hidden>{marker.glyph}</span>
                         <span className="text-muted">{marker.label}</span>
+                      </span>
+                    ) : isSelected ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent">
+                        <span aria-hidden>◄</span> Inspecting
                       </span>
                     ) : (
                       <span className="text-muted">—</span>

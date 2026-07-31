@@ -11,6 +11,7 @@ import {
   type TradeStatus,
 } from "@/lib/status";
 import { cn } from "@/lib/utils";
+import type { SelectedStrike } from "@/components/ParticipationRadar";
 import type {
   ConfidenceBand,
   QualificationGate,
@@ -131,8 +132,10 @@ function NeedRow({ gate }: { gate: QualificationGate }) {
 
 export function RecommendedTradeCard({
   qualification,
+  inspecting = null,
 }: {
   qualification: TradeQualification | null;
+  inspecting?: SelectedStrike | null;
 }) {
   if (!qualification) {
     return (
@@ -157,14 +160,21 @@ export function RecommendedTradeCard({
         <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
           Recommended Trade
         </span>
-        <span
-          className={cn(
-            "rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
-            style.pill,
+        <div className="flex items-center gap-2">
+          {inspecting && (
+            <span className="hidden items-center gap-1 rounded-full border border-accent/40 px-2 py-0.5 text-[11px] text-accent sm:inline-flex">
+              Inspecting {inspecting.strike} {inspecting.option_type}
+            </span>
           )}
-        >
-          {STATUS_LABEL[status]}
-        </span>
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+              style.pill,
+            )}
+          >
+            {STATUS_LABEL[status]}
+          </span>
+        </div>
       </div>
 
       {/* Focus strike — always shown when one exists (qualified or watched) */}
