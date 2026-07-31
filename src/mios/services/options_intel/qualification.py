@@ -21,14 +21,13 @@ from decimal import Decimal
 from mios.config import Settings
 from mios.schemas.market import (
     BestCandidate,
-    CePeComparison,
     Classification,
     ClassificationResult,
     ConfidenceBand,
     ControllingSide,
     GateName,
+    MarketBias,
     MarketContext,
-    MarketSide,
     OptionType,
     QualificationGate,
     StrikeState,
@@ -61,17 +60,21 @@ def qualify(
     strike_states: list[StrikeState],
     structure: StructureState,
     context: MarketContext,
-    cepe: CePeComparison,
+    bias: MarketBias,
     *,
     spot: Decimal,
     settings: Settings,
 ) -> TradeQualification:
-    """Evaluate the four gates and return the qualification decision."""
+    """Evaluate the four gates and return the qualification decision.
+
+    Direction and the control gate both read the canonical `bias`, so the trade
+    MIOS qualifies always points the same way as the Dominance and Narrative.
+    """
     states = {(s.strike, s.option_type): s for s in strike_states}
     unusual_strikes = {(u.strike, u.option_type) for u in unusual}
 
-    # Direction comes from who controls the market (existing Context output).
-    side = _direction(context.controlling_side)
+    # Direction comes from who controls the market (canonical Bias Engine).
+    side = _direction(bias.controlling_side)
 
     # Candidate strikes: buy-side classifications on the controlling side,
     # ranked by liquidity so the best available strike leads.
@@ -82,7 +85,7 @@ def qualify(
     gates = [
         _gate_market_regime(structure),
         _gate_participation(chosen),
-        _gate_control(cepe),
+        _gate_control(bias),
         _gate_strike_quality(chosen_state, spot=spot, settings=settings),
     ]
 
@@ -200,13 +203,18 @@ def _gate_participation(chosen: ClassificationResult | None) -> QualificationGat
     )
 
 
-def _gate_control(cepe: CePeComparison) -> QualificationGate:
-    """Gate 3: one side must clearly control the market."""
-    passed = cepe.stronger_side is not MarketSide.NEUTRAL
+def _gate_control(bias: MarketBias) -> QualificationGate:
+    """Gate 3: one side must clearly control the market (canonical bias).
+
+    Exposes the measurable bull/bear scores behind the decision rather than a
+    generic verdict, so a failed gate is fully explainable.
+    """
+    passed = bias.controlling_side is not ControllingSide.NEUTRAL
+    scores = f"bull {bias.bull_score:,.0f} vs bear {bias.bear_score:,.0f}"
     if passed:
-        reason = f"{cepe.stronger_side.value} side is in control."
+        reason = f"{bias.controlling_side.value.capitalize()} in control ({scores})."
     else:
-        reason = "Neither CE nor PE clearly controls the market."
+        reason = f"Neither side clearly controls the market ({scores})."
     return _gate(GateName.CE_PE_CONTROL, passed, reason)
 
 

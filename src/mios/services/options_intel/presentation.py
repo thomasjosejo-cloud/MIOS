@@ -10,12 +10,11 @@ from decimal import Decimal
 
 from mios.schemas.dashboard import MarketDominance, MarketNarrative
 from mios.schemas.market import (
-    CePeComparison,
     Classification,
     ClassificationResult,
     ControllingSide,
+    MarketBias,
     MarketContext,
-    MarketSide,
     MomentumReport,
     MomentumState,
     OptionType,
@@ -33,9 +32,20 @@ _STRUCTURE_PHRASE = {
 
 
 def build_dominance(
-    classifications: list[ClassificationResult], cepe: CePeComparison
+    bias: MarketBias,
+    classifications: list[ClassificationResult],
+    *,
+    previous_control: ControllingSide | None,
 ) -> MarketDominance:
-    """Derive control, buyer/writer split, and CE/PE dominance from CE/PE data."""
+    """Project the canonical bias into the dashboard's dominance view.
+
+    Control and CE/PE dominance come straight from the canonical `bias`, so this
+    card can never disagree with the Context card or the Narrative. The
+    buyers/writers split is a separate *participant* axis — how much of the
+    fresh positioning is buying versus writing — not a bull/bear reading.
+    """
+    control = bias.controlling_side
+
     buyers = sum(
         1 for c in classifications if c.classification is Classification.LONG_BUILDUP
     )
@@ -46,15 +56,18 @@ def build_dominance(
     buyers_pct = round(buyers / total * 100) if total else 50
     writers_pct = 100 - buyers_pct
 
-    if cepe.stronger_side is MarketSide.CE:
-        ce_dom, pe_dom, control = "Strong", "Weak", ControllingSide.BULLS
-    elif cepe.stronger_side is MarketSide.PE:
-        ce_dom, pe_dom, control = "Weak", "Strong", ControllingSide.BEARS
+    if control is ControllingSide.BULLS:
+        ce_dom, pe_dom = "Strong", "Weak"
+    elif control is ControllingSide.BEARS:
+        ce_dom, pe_dom = "Weak", "Strong"
     else:
-        ce_dom, pe_dom, control = "Balanced", "Balanced", ControllingSide.NEUTRAL
+        ce_dom, pe_dom = "Balanced", "Balanced"
 
     to_label = _control_label(control)
-    from_label = "Neutral" if cepe.control_shifting else to_label
+    if previous_control is not None and previous_control is not control:
+        from_label = _control_label(previous_control)
+    else:
+        from_label = to_label
 
     return MarketDominance(
         control=control,

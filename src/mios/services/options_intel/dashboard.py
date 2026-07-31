@@ -11,6 +11,7 @@ import datetime as dt
 from decimal import Decimal
 
 from mios.config.constants import AuthStatus
+from mios.core.logging import get_logger
 from mios.schemas.dashboard import (
     DashboardResponse,
     EngineStatus,
@@ -20,8 +21,10 @@ from mios.schemas.dashboard import (
     OptionChainRow,
 )
 from mios.schemas.market import Classification, OptionType, TradeQualification
-from mios.services.options_intel import presentation
+from mios.services.options_intel import consistency, presentation
 from mios.services.options_intel.store import EngineStore
+
+logger = get_logger(__name__)
 
 #: Strikes to show per side around the money (Sprint 10.1: 5 CE + 5 PE).
 _CHAIN_PER_SIDE = 5
@@ -33,6 +36,10 @@ def build_dashboard(
     """Aggregate the store's latest pipeline outputs into one dashboard response."""
     now = now or dt.datetime.now(dt.UTC)
 
+    narrative = _narrative(store)
+    dominance = _dominance(store)
+    _log_consistency(store, dominance, narrative)
+
     return DashboardResponse(
         connection_state=store.connection_state,
         authentication=(
@@ -42,14 +49,49 @@ def build_dashboard(
         ),
         data_source=store.data_source,
         market=_market(store),
-        narrative=_narrative(store),
-        dominance=_dominance(store),
+        narrative=narrative,
+        dominance=dominance,
         qualification=store.qualification,
         context=store.context,
         ce_pe=store.cepe,
         option_chain=_option_chain(store),
         engine=_engine_status(store, now),
     )
+
+
+def _log_consistency(
+    store: EngineStore,
+    dominance: MarketDominance | None,
+    narrative: MarketNarrative | None,
+) -> None:
+    """Run the pre-publish consistency validator; log any contradiction found.
+
+    The dashboard is never blocked — this only surfaces contradictions so they
+    are not silently published. With one canonical bias driving control, a
+    warning here means a genuine regression to investigate.
+    """
+    if (
+        store.bias is None
+        or store.context is None
+        or dominance is None
+        or store.structure is None
+        or store.qualification is None
+        or narrative is None
+    ):
+        return
+    warnings = consistency.check(
+        bias=store.bias,
+        context=store.context,
+        dominance=dominance,
+        structure=store.structure,
+        qualification=store.qualification,
+        narrative=narrative,
+    )
+    if warnings:
+        logger.warning(
+            "Dashboard consistency check flagged contradictions",
+            extra={"contradictions": warnings},
+        )
 
 
 def _market(store: EngineStore) -> MarketSection:
@@ -90,10 +132,14 @@ def _narrative(store: EngineStore) -> MarketNarrative | None:
 
 
 def _dominance(store: EngineStore) -> MarketDominance | None:
-    """Build the market-dominance view from the existing CE/PE analysis."""
-    if store.cepe is None:
+    """Build the market-dominance view from the canonical market bias."""
+    if store.bias is None:
         return None
-    return presentation.build_dominance(store.classifications, store.cepe)
+    return presentation.build_dominance(
+        store.bias,
+        store.classifications,
+        previous_control=store.previous_controlling_side,
+    )
 
 
 def _option_chain(store: EngineStore) -> list[OptionChainRow]:

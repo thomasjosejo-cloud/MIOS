@@ -7,14 +7,13 @@ the narrative and dominance from that data and never invents values.
 from decimal import Decimal
 
 from mios.schemas.market import (
-    CePeComparison,
     Classification,
     ClassificationResult,
     ConfidenceBand,
     ControllingSide,
     DominantParticipant,
+    MarketBias,
     MarketContext,
-    MarketSide,
     MomentumReport,
     MomentumState,
     OptionType,
@@ -39,15 +38,16 @@ def _classification(
     )
 
 
-def _cepe(stronger: MarketSide, *, shifting: bool = False) -> CePeComparison:
-    return CePeComparison(
-        stronger_side=stronger,
-        writer_active_strikes=[],
-        buyer_active_strikes=[Decimal(24700)],
-        control_shifting=shifting,
-        shift_description="Neutral → Bullish" if shifting else None,
-        important_strikes=[Decimal(24700)],
-        evidence=["cepe"],
+def _bias(
+    control: ControllingSide, *, bull: float = 0.0, bear: float = 0.0
+) -> MarketBias:
+    return MarketBias(
+        controlling_side=control,
+        bull_score=bull,
+        bear_score=bear,
+        net_score=bull - bear,
+        contributions=[],
+        evidence=["bias"],
     )
 
 
@@ -99,7 +99,8 @@ def _qualification(*, qualified: bool) -> TradeQualification:
 # --- Dominance ---------------------------------------------------------------
 
 
-def test_dominance_splits_buyers_and_writers_from_classifications() -> None:
+def test_dominance_control_comes_from_canonical_bias() -> None:
+    # Control and CE/PE dominance follow the canonical bias, never raw OI.
     classifications = [
         _classification(24700, OptionType.CE, Classification.LONG_BUILDUP),
         _classification(24750, OptionType.CE, Classification.LONG_BUILDUP),
@@ -107,27 +108,54 @@ def test_dominance_splits_buyers_and_writers_from_classifications() -> None:
         _classification(24600, OptionType.PE, Classification.SHORT_BUILDUP),
     ]
 
-    dominance = presentation.build_dominance(classifications, _cepe(MarketSide.CE))
+    dominance = presentation.build_dominance(
+        _bias(ControllingSide.BULLS, bull=100), classifications, previous_control=None
+    )
 
     assert dominance.control is ControllingSide.BULLS
-    assert dominance.buyers_pct == 75  # 3 of 4
+    # Participant axis: 3 long build-ups (buying) vs 1 short build-up (writing).
+    assert dominance.buyers_pct == 75
     assert dominance.writers_pct == 25
     assert dominance.ce_dominance == "Strong"
     assert dominance.pe_dominance == "Weak"
 
 
+def test_dominance_put_writing_is_not_read_as_bearish() -> None:
+    # Regression for the Sprint 11 defect: PE Short Build (put writing) is
+    # bullish, so a bias-BULLS control must NOT be flipped to bears.
+    classifications = [
+        _classification(24300, OptionType.PE, Classification.SHORT_BUILDUP),
+        _classification(24350, OptionType.PE, Classification.SHORT_BUILDUP),
+    ]
+
+    dominance = presentation.build_dominance(
+        _bias(ControllingSide.BULLS, bull=660_000),
+        classifications,
+        previous_control=None,
+    )
+
+    assert dominance.control is ControllingSide.BULLS
+    assert dominance.pe_dominance == "Weak"  # not "Strong/bearish"
+
+
 def test_dominance_reports_control_shift() -> None:
-    dominance = presentation.build_dominance([], _cepe(MarketSide.CE, shifting=True))
+    dominance = presentation.build_dominance(
+        _bias(ControllingSide.BULLS, bull=100),
+        [],
+        previous_control=ControllingSide.NEUTRAL,
+    )
 
     assert dominance.control_shift_from == "Neutral"
     assert dominance.control_shift_to == "Bullish"
 
 
-def test_dominance_neutral_when_no_classifications() -> None:
-    dominance = presentation.build_dominance([], _cepe(MarketSide.NEUTRAL))
+def test_dominance_neutral_when_bias_neutral() -> None:
+    dominance = presentation.build_dominance(
+        _bias(ControllingSide.NEUTRAL), [], previous_control=None
+    )
 
     assert dominance.control is ControllingSide.NEUTRAL
-    assert dominance.buyers_pct == 50  # no data → balanced default
+    assert dominance.buyers_pct == 50  # no participants → balanced default
     assert dominance.ce_dominance == "Balanced"
 
 

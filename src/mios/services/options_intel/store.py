@@ -13,6 +13,8 @@ from mios.config.constants import ConnectionState, DataSource
 from mios.schemas.market import (
     CePeComparison,
     ClassificationResult,
+    ControllingSide,
+    MarketBias,
     MarketContext,
     MomentumReport,
     RadarReport,
@@ -32,6 +34,7 @@ class EngineStore:
     unusual: list[UnusualActivity] = field(default_factory=list)
     radar: RadarReport | None = None
     cepe: CePeComparison | None = None
+    bias: MarketBias | None = None
     structure: StructureState | None = None
     momentum: MomentumReport | None = None
     context: MarketContext | None = None
@@ -40,6 +43,8 @@ class EngineStore:
     spot_price: Decimal | None = None
     #: Spot price from the previous poll, for computing spot change.
     previous_spot_price: Decimal | None = None
+    #: Canonical control from the previous poll, for the dominance shift arrow.
+    previous_controlling_side: ControllingSide | None = None
     market_open: bool = False
     engine_running: bool = False
     #: Whether the optional 5-minute History validation step ran this poll.

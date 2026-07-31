@@ -94,7 +94,13 @@ def compare(
 def _stronger_side(
     ce_net_oi: int, pe_net_oi: int, neutral_band_pct: float
 ) -> MarketSide:
-    """Determine the stronger side from net OI addition, within a neutral band."""
+    """Which side added more OI — a factual OI-flow metric, NOT market sentiment.
+
+    Rising PE OI can be bullish (put writing) or bearish (put buying), so this
+    must never be read as bull/bear control. Market control comes only from the
+    Bias Engine, which resolves each strike's classification to its true
+    meaning. This value is used solely for CE/PE evidence and the shift label.
+    """
     larger = max(abs(ce_net_oi), abs(pe_net_oi))
     if larger == 0:
         return MarketSide.NEUTRAL

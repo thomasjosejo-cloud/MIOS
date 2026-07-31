@@ -12,6 +12,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from mios.config import Settings, get_settings
+from mios.schemas.dashboard import AuditReport
 from mios.schemas.market import (
     MarketContext,
     MarketStatusReport,
@@ -20,6 +21,7 @@ from mios.schemas.market import (
     StructureReport,
     TradeQualification,
 )
+from mios.services.options_intel import audit
 from mios.services.options_intel.market_hours import is_market_open
 from mios.services.options_intel.runtime import get_store
 from mios.services.options_intel.store import EngineStore
@@ -68,6 +70,18 @@ async def market_recommendation(store: StoreDep) -> TradeQualification:
     _require(store.qualification)
     assert store.qualification is not None
     return store.qualification
+
+
+@router.get("/audit", response_model=AuditReport)
+async def market_audit(store: StoreDep, settings: SettingsDep) -> AuditReport:
+    """Return the full decision trace for the current snapshot (debug tool).
+
+    Shows each nearby strike's raw deltas and signed bias contribution next to
+    the derived regime, dominance, qualification, and narrative, plus any
+    consistency contradictions — so every conclusion is traceable to evidence.
+    """
+    _require(store.bias)
+    return audit.build_audit_report(store, settings=settings)
 
 
 @router.get("/radar", response_model=RadarReport)

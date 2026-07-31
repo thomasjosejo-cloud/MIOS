@@ -28,6 +28,7 @@ from mios.schemas.market import (
     TrendDirection,
     UnusualActivity,
 )
+from mios.services.options_intel import bias as bias_engine
 from mios.services.options_intel import qualification as qual
 
 _T0 = dt.datetime(2026, 1, 1, 9, 20, tzinfo=dt.UTC)
@@ -150,15 +151,24 @@ def _qualify(
     *,
     structure_: StructureState,
     context_: MarketContext,
-    cepe_: CePeComparison,
+    cepe_: CePeComparison | None = None,  # retained for call-site compatibility
 ) -> TradeQualification:
+    # Control now comes from the canonical Bias Engine derived from the same
+    # classifications/states, and the context is forced to agree with it so the
+    # unit under test reflects the real, consistent pipeline.
+    market_bias = bias_engine.assess(
+        classifications, states, neutral_band_pct=_settings().CE_PE_NEUTRAL_BAND_PCT
+    )
+    context_consistent = context_.model_copy(
+        update={"controlling_side": market_bias.controlling_side}
+    )
     return qual.qualify(
         classifications,
         unusuals,
         states,
         structure_,
-        context_,
-        cepe_,
+        context_consistent,
+        market_bias,
         spot=_SPOT,
         settings=_settings(),
     )
@@ -211,14 +221,14 @@ def test_sideways_market_fails_gate1_no_trade() -> None:
 
 
 def test_no_participation_fails_gate2_no_trade() -> None:
-    # Bulls control, but the only classified strike is a PE — no CE candidate.
+    # Bullish put writing (PE Short Build) makes control BULLS, but there is no
+    # CE to buy on the controlling side, so participation fails.
     result = _qualify(
-        [classification(24700, OptionType.PE, Classification.LONG_BUILDUP)],
+        [classification(24700, OptionType.PE, Classification.SHORT_BUILDUP)],
         [],
         [state(24700, OptionType.PE)],
         structure_=structure(),
         context_=context(controlling=ControllingSide.BULLS),
-        cepe_=cepe(MarketSide.CE),
     )
 
     assert result.qualified is False
@@ -230,14 +240,17 @@ def test_no_participation_fails_gate2_no_trade() -> None:
 
 
 def test_neutral_control_fails_gate3_no_trade() -> None:
-    # Neutral control means no direction and no candidates at all.
+    # Equal bullish and bearish conviction -> canonical bias is NEUTRAL, so no
+    # direction, no candidates, and the control gate fails.
     result = _qualify(
-        [classification(24700, OptionType.CE, Classification.LONG_BUILDUP)],
+        [
+            classification(24700, OptionType.CE, Classification.LONG_BUILDUP),
+            classification(24750, OptionType.CE, Classification.SHORT_BUILDUP),
+        ],
         [],
-        [state(24700, OptionType.CE)],
+        [state(24700, OptionType.CE), state(24750, OptionType.CE)],
         structure_=structure(),
         context_=context(controlling=ControllingSide.NEUTRAL),
-        cepe_=cepe(MarketSide.NEUTRAL),
     )
 
     assert result.qualified is False

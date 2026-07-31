@@ -14,6 +14,7 @@ from mios.schemas.market import (
     Candle,
     CePeComparison,
     ClassificationResult,
+    MarketBias,
     MarketContext,
     MomentumReport,
     OptionQuote,
@@ -22,6 +23,9 @@ from mios.schemas.market import (
     StructureState,
     TradeQualification,
     UnusualActivity,
+)
+from mios.services.options_intel import (
+    bias as bias_engine,
 )
 from mios.services.options_intel import (
     ce_pe,
@@ -55,6 +59,7 @@ class PipelineResult:
     unusual: list[UnusualActivity]
     radar: RadarReport
     cepe: CePeComparison
+    bias: MarketBias
     structure: StructureState
     momentum: MomentumReport
     context: MarketContext
@@ -93,6 +98,13 @@ def run_pipeline(
         neutral_band_pct=settings.CE_PE_NEUTRAL_BAND_PCT,
         previous=previous_cepe,
     )
+    # The canonical read of market control. Every component below derives who
+    # is in control from this one object, so they cannot contradict each other.
+    bias = bias_engine.assess(
+        classifications,
+        strike_states,
+        neutral_band_pct=settings.CE_PE_NEUTRAL_BAND_PCT,
+    )
     structure = structure_engine.analyze(
         candles, swing_lookback=settings.STRUCTURE_SWING_LOOKBACK
     )
@@ -103,7 +115,7 @@ def run_pipeline(
         acceleration_threshold=settings.MOMENTUM_ACCELERATION_THRESHOLD,
     )
     context = context_engine.build_context(
-        cepe, structure, momentum, classifications, spot=spot
+        cepe, structure, momentum, classifications, bias, spot=spot
     )
     # The Trade Qualification Engine makes the final decision from the four
     # gates, reading the upstream outputs only.
@@ -113,7 +125,7 @@ def run_pipeline(
         strike_states,
         structure,
         context,
-        cepe,
+        bias,
         spot=spot,
         settings=settings,
     )
@@ -124,6 +136,7 @@ def run_pipeline(
         unusual=unusual,
         radar=radar,
         cepe=cepe,
+        bias=bias,
         structure=structure,
         momentum=momentum,
         context=context,

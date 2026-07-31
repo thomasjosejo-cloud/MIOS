@@ -17,9 +17,14 @@ from mios.schemas.market import (
     CePeComparison,
     Classification,
     ControllingSide,
+    MarketBias,
     MarketContext,
+    MomentumState,
     OptionType,
+    Sentiment,
+    StructurePattern,
     TradeQualification,
+    TrendDirection,
 )
 
 
@@ -94,3 +99,42 @@ class DashboardResponse(BaseModel):
     #: Trimmed to the five CE and five PE strikes nearest the money.
     option_chain: list[OptionChainRow]
     engine: EngineStatus
+
+
+# --- Debug / audit ------------------------------------------------------------
+
+
+class AuditStrikeRow(BaseModel):
+    """One nearby strike in the decision trace, with its bias contribution."""
+
+    strike: Decimal
+    option_type: OptionType
+    oi_change: int
+    oi_change_pct: float | None
+    premium_change_pct: float | None
+    volume_change_pct: float | None
+    classification: Classification | None
+    sentiment: Sentiment | None
+    weight: int
+    signed_score: float
+
+
+class AuditReport(BaseModel):
+    """A full, explainable decision trace for one market snapshot.
+
+    The primary MIOS debugging tool: every dashboard conclusion (bias, regime,
+    dominance, qualification, narrative) shown next to the raw per-strike
+    evidence it was derived from, plus any consistency contradictions found.
+    """
+
+    spot: Decimal | None
+    atm: Decimal | None
+    strikes: list[AuditStrikeRow]
+    bias: MarketBias | None
+    structure_trend: TrendDirection | None
+    structure_pattern: StructurePattern | None
+    momentum: MomentumState | None
+    dominance: MarketDominance | None
+    qualification: TradeQualification | None
+    narrative: MarketNarrative | None
+    consistency_warnings: list[str]

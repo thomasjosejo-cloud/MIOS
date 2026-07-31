@@ -189,12 +189,16 @@ class OptionsIntelEngine:
         """Copy a pipeline result and metadata into the shared store."""
         store = self._store
         store.previous_spot_price = store.spot_price
+        store.previous_controlling_side = (
+            store.context.controlling_side if store.context else None
+        )
         store.validation_available = validation_available
         store.strike_states = result.strike_states
         store.classifications = result.classifications
         store.unusual = result.unusual
         store.radar = result.radar
         store.cepe = result.cepe
+        store.bias = result.bias
         store.structure = result.structure
         store.momentum = result.momentum
         store.context = result.context

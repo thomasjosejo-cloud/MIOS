@@ -56,7 +56,7 @@ def test_status_is_available_before_any_poll(api: TestClient) -> None:
 
 
 def test_analysis_endpoints_503_before_any_poll(api: TestClient) -> None:
-    for path in ("context", "options", "recommendation", "radar", "structure"):
+    for path in ("context", "options", "recommendation", "radar", "structure", "audit"):
         response = api.get(f"/api/v1/market/{path}")
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
 
@@ -87,3 +87,14 @@ def test_endpoints_serve_seeded_data(api: TestClient) -> None:
     assert structure.status_code == status.HTTP_200_OK
     assert "structure" in structure.json()
     assert "momentum" in structure.json()
+
+    audit = api.get("/api/v1/market/audit")
+    assert audit.status_code == status.HTTP_200_OK
+    audit_body = audit.json()
+    # The audit exposes the canonical bias and the per-strike decision trace,
+    # plus the consistency validator's findings.
+    assert "bias" in audit_body
+    assert "strikes" in audit_body
+    assert "consistency_warnings" in audit_body
+    # The seeded simulator feed must be internally consistent (no contradictions).
+    assert audit_body["consistency_warnings"] == []

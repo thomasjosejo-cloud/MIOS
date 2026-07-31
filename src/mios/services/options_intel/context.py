@@ -15,6 +15,7 @@ from mios.schemas.market import (
     ClassificationResult,
     ControllingSide,
     DominantParticipant,
+    MarketBias,
     MarketContext,
     MomentumReport,
     MomentumState,
@@ -29,10 +30,17 @@ def build_context(
     structure: StructureState,
     momentum: MomentumReport,
     classifications: list[ClassificationResult],
+    bias: MarketBias,
     *,
     spot: Decimal,
 ) -> MarketContext:
-    """Build the synthesized market context from upstream engine outputs."""
+    """Build the synthesized market context from upstream engine outputs.
+
+    Market control comes straight from the canonical Bias Engine (`bias`), so
+    Context, Dominance, Qualification, and the Narrative always agree on who is
+    in control. Structure then either validates or contradicts that control; it
+    no longer decides it.
+    """
     pe_writing = _strikes(
         classifications, OptionType.PE, Classification.SHORT_BUILDUP, spot, above=False
     )
@@ -46,11 +54,7 @@ def build_context(
         classifications, OptionType.PE, Classification.LONG_BUILDUP, spot, above=False
     )
 
-    bullish_signal = bool(pe_writing or ce_buying)
-    bearish_signal = bool(ce_writing or pe_buying)
-    controlling_side = _controlling_side(
-        bullish_signal, bearish_signal, structure.trend
-    )
+    controlling_side = bias.controlling_side
     dominant_participant = _dominant_participant(classifications)
 
     structure_validates_options = (
@@ -72,7 +76,7 @@ def build_context(
         controlling_side,
         contradiction,
     )
-    evidence = [*cepe.evidence, *structure.evidence, *momentum.evidence]
+    evidence = [*bias.evidence, *cepe.evidence, *structure.evidence, *momentum.evidence]
 
     return MarketContext(
         controlling_side=controlling_side,
@@ -106,21 +110,6 @@ def _strikes(
         and c.classification is classification
         and ((c.strike >= spot) if above else (c.strike <= spot))
     )
-
-
-def _controlling_side(
-    bullish_signal: bool, bearish_signal: bool, trend: TrendDirection
-) -> ControllingSide:
-    """Determine who controls the market from options signals and price structure."""
-    if bullish_signal and trend is TrendDirection.UPTREND:
-        return ControllingSide.BULLS
-    if bearish_signal and trend is TrendDirection.DOWNTREND:
-        return ControllingSide.BEARS
-    if bullish_signal and not bearish_signal:
-        return ControllingSide.BULLS
-    if bearish_signal and not bullish_signal:
-        return ControllingSide.BEARS
-    return ControllingSide.NEUTRAL
 
 
 def _dominant_participant(

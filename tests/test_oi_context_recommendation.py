@@ -16,6 +16,9 @@ from mios.schemas.market import (
     TrendDirection,
 )
 from mios.services.options_intel import (
+    bias as bias_engine,
+)
+from mios.services.options_intel import (
     ce_pe,
     unusual_activity,
 )
@@ -101,8 +104,9 @@ def test_context_is_evidence_backed_and_names_control(
         candles, structure, lookback=5, acceleration_threshold=0.2
     )
 
+    bias = bias_engine.assess(classifications, states, neutral_band_pct=10)
     context = context_engine.build_context(
-        cepe, structure, momentum, classifications, spot=Decimal(24750)
+        cepe, structure, momentum, classifications, bias, spot=Decimal(24750)
     )
 
     assert context.controlling_side is ControllingSide.BULLS
@@ -135,8 +139,9 @@ def test_context_flags_contradiction(
         candles, structure, lookback=5, acceleration_threshold=0.2
     )
 
+    bias = bias_engine.assess(classifications, states, neutral_band_pct=10)
     context = context_engine.build_context(
-        cepe, structure, momentum, classifications, spot=Decimal(24750)
+        cepe, structure, momentum, classifications, bias, spot=Decimal(24750)
     )
 
     if (

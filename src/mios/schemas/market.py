@@ -31,6 +31,18 @@ class Classification(StrEnum):
     SHORT_COVERING = "short_covering"
 
 
+class Sentiment(StrEnum):
+    """The directional market meaning of a classified strike.
+
+    A position label (e.g. Short Build-up) means the opposite thing on the CE
+    and PE side: writing calls is bearish, writing puts is bullish. This enum is
+    that resolved meaning, produced by the Bias Engine's canonical mapping.
+    """
+
+    BULLISH = "bullish"
+    BEARISH = "bearish"
+
+
 class SwingLabel(StrEnum):
     """Label applied to a detected swing point relative to the prior one."""
 
@@ -255,6 +267,42 @@ class MomentumReport(BaseModel):
     """Momentum state derived from price and volume behaviour."""
 
     state: MomentumState
+    evidence: list[str]
+
+
+# --- Bias Engine (canonical market control) ------------------------------------------
+
+
+class StrikeContribution(BaseModel):
+    """One classified strike's signed contribution to the market bias.
+
+    `weight` is the magnitude of fresh positioning (|OI change|); `signed_score`
+    is that weight with the sentiment's sign. Nothing here is invented — the
+    weight is already-computed OI data and the sentiment is a fixed mapping.
+    """
+
+    strike: Decimal
+    option_type: OptionType
+    classification: Classification
+    sentiment: Sentiment
+    weight: int
+    signed_score: float
+
+
+class MarketBias(BaseModel):
+    """The single canonical read of who controls the market.
+
+    Every downstream component (context, dominance, qualification, narrative)
+    derives market control from this one object, so they can never disagree.
+    Control is decided from classification-resolved sentiment weighted by OI
+    change — never from raw OI direction alone.
+    """
+
+    controlling_side: ControllingSide
+    bull_score: float
+    bear_score: float
+    net_score: float
+    contributions: list[StrikeContribution]
     evidence: list[str]
 
 
