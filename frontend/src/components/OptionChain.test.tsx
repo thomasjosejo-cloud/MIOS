@@ -18,7 +18,7 @@ describe("OptionChain", () => {
       "Volume",
       "Classification",
       "Unusual",
-      "Recommended",
+      "Signal",
     ]) {
       expect(screen.getByRole("columnheader", { name: col })).toBeInTheDocument();
     }
@@ -34,12 +34,21 @@ describe("OptionChain", () => {
     expect(within(row).getByText("+1,400")).toBeInTheDocument();
   });
 
-  it("marks the recommended strike", () => {
-    render(<OptionChain rows={dashboardFixture.option_chain} highlightedRowId={null} />);
+  it("marks the qualified strike from the qualification data", () => {
+    render(
+      <OptionChain
+        rows={dashboardFixture.option_chain}
+        highlightedRowId={null}
+        qualification={dashboardFixture.qualification}
+      />,
+    );
 
-    const recommended = screen.getByTestId(rowDomId("25150", "CE"));
-    expect(recommended.className).toContain("bg-accent");
-    const notRecommended = screen.getByTestId(rowDomId("25000", "PE"));
-    expect(notRecommended.className).not.toContain("bg-accent");
+    // 25150 CE is the qualified strike -> green highlight + "Qualified".
+    const qualified = screen.getByTestId(rowDomId("25150", "CE"));
+    expect(qualified.className).toContain("bg-bullish");
+    expect(within(qualified).getByText("Qualified")).toBeInTheDocument();
+
+    const other = screen.getByTestId(rowDomId("25000", "PE"));
+    expect(other.className).not.toContain("bg-bullish");
   });
 });

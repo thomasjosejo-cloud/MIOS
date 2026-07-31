@@ -35,7 +35,7 @@ describe("App", () => {
     mockFetchOnce(dashboardFixture);
     renderWithClient(<App />);
 
-    expect(await screen.findByText("Trade Qualified")).toBeInTheDocument();
+    expect(await screen.findByText("TRADE QUALIFIED")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Market Dominance" }),
     ).toBeInTheDocument();
@@ -60,7 +60,7 @@ describe("App", () => {
       screen.getByRole("link", { name: "Connect to Fyers" }),
     ).toHaveAttribute("href", "/api/v1/fyers/login");
     // The dashboard (qualified trade) is not shown while disconnected.
-    expect(screen.queryByText("Trade Qualified")).not.toBeInTheDocument();
+    expect(screen.queryByText("TRADE QUALIFIED")).not.toBeInTheDocument();
   });
 
   it("shows the error state when the request fails", async () => {

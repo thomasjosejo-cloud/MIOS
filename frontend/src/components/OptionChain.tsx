@@ -3,8 +3,13 @@ import type { ReactNode } from "react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDecimal, formatInt, formatSignedInt, labelize } from "@/lib/format";
 import { rowDomId } from "@/lib/rows";
+import { type ChainMark, markFor } from "@/lib/status";
 import { cn } from "@/lib/utils";
-import type { Classification, OptionChainRow } from "@/types/dashboard";
+import type {
+  Classification,
+  OptionChainRow,
+  TradeQualification,
+} from "@/types/dashboard";
 
 const COLUMNS = [
   "Strike",
@@ -15,8 +20,17 @@ const COLUMNS = [
   "Volume",
   "Classification",
   "Unusual",
-  "Recommended",
+  "Signal",
 ] as const;
+
+const MARK: Record<
+  Exclude<ChainMark, null>,
+  { glyph: string; label: string; row: string }
+> = {
+  qualified: { glyph: "🟢", label: "Qualified", row: "bg-bullish/10" },
+  watching: { glyph: "🟡", label: "Watching", row: "bg-[#E0A82E]/10" },
+  best: { glyph: "⭐", label: "Best candidate", row: "bg-accent/10" },
+};
 
 function classificationTone(c: Classification | null): string {
   switch (c) {
@@ -48,9 +62,11 @@ function Cell({
 export function OptionChain({
   rows,
   highlightedRowId,
+  qualification = null,
 }: {
   rows: OptionChainRow[];
   highlightedRowId: string | null;
+  qualification?: TradeQualification | null;
 }) {
   return (
     <Card id="option-chain" className="scroll-mt-16 overflow-hidden">
@@ -72,7 +88,8 @@ export function OptionChain({
           <tbody>
             {rows.map((row) => {
               const id = rowDomId(row.strike, row.option_type);
-              const isRecommended = row.recommendation_flag;
+              const mark = markFor(qualification, row.strike, row.option_type);
+              const marker = mark ? MARK[mark] : null;
               const isSelected = highlightedRowId === id;
               return (
                 <tr
@@ -81,7 +98,7 @@ export function OptionChain({
                   data-testid={id}
                   className={cn(
                     "scroll-mt-14 border-b border-border/60 tabular-nums transition-colors",
-                    isRecommended && "bg-accent/10",
+                    marker?.row,
                     isSelected && "ring-1 ring-inset ring-accent",
                     "hover:bg-border/40",
                   )}
@@ -128,8 +145,14 @@ export function OptionChain({
                     )}
                   </Cell>
                   <Cell>
-                    {isRecommended ? (
-                      <span className="font-semibold text-accent">★</span>
+                    {marker ? (
+                      <span
+                        className="inline-flex items-center gap-1.5 text-xs"
+                        title={marker.label}
+                      >
+                        <span aria-hidden>{marker.glyph}</span>
+                        <span className="text-muted">{marker.label}</span>
+                      </span>
                     ) : (
                       <span className="text-muted">—</span>
                     )}

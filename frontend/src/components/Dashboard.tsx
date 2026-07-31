@@ -27,8 +27,12 @@ export function Dashboard({ data }: { data: DashboardResponse }) {
       {/* Permanent market-intelligence card. */}
       <WhatIsHappeningCard narrative={data.narrative} />
 
-      {/* Trimmed to 5 CE + 5 PE around ATM; recommended strike highlighted. */}
-      <OptionChain rows={data.option_chain} highlightedRowId={null} />
+      {/* Trimmed to 5 CE + 5 PE around ATM; qualified/watching/best marked. */}
+      <OptionChain
+        rows={data.option_chain}
+        highlightedRowId={null}
+        qualification={data.qualification}
+      />
 
       <EngineStatus engine={data.engine} />
     </div>
