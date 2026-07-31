@@ -10,13 +10,42 @@ from mios.integrations.fyers.normalizer import (
 from mios.schemas.market import OptionType
 
 
-def test_normalize_spot_extracts_last_price() -> None:
+def test_normalize_spot_extracts_last_price_and_prev_close() -> None:
+    raw = {
+        "s": "ok",
+        "d": [
+            {
+                "n": "NSE:NIFTY50-INDEX",
+                "v": {
+                    "lp": 24400.45,
+                    "prev_close_price": 24317.15,
+                    "ch": 83.3,
+                    "chp": 0.34,
+                },
+            }
+        ],
+    }
+
+    quote = normalize_spot(raw, "NSE:NIFTY50-INDEX")
+
+    assert quote.ltp == Decimal("24400.45")
+    assert quote.symbol == "NSE:NIFTY50-INDEX"
+    # The previous trading day's close is captured from the feed...
+    assert quote.prev_close == Decimal("24317.15")
+    # ...and the day's change is derived from it, matching Fyers' ch/chp.
+    assert quote.change == Decimal("83.30")
+    assert quote.change_percent == 0.34
+
+
+def test_normalize_spot_tolerates_missing_prev_close() -> None:
     raw = {"s": "ok", "d": [{"n": "NSE:NIFTY50-INDEX", "v": {"lp": 24705.5}}]}
 
     quote = normalize_spot(raw, "NSE:NIFTY50-INDEX")
 
     assert quote.ltp == Decimal("24705.5")
-    assert quote.symbol == "NSE:NIFTY50-INDEX"
+    assert quote.prev_close is None
+    assert quote.change is None
+    assert quote.change_percent is None
 
 
 def test_normalize_option_chain_skips_the_index_row() -> None:

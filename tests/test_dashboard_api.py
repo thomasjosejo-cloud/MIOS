@@ -164,17 +164,20 @@ def test_healthy_engine_reports_runtime_and_age(
     assert engine["data_age_seconds"] >= 0
 
 
-def test_spot_change_is_derived_from_previous_poll(
+def test_spot_change_is_derived_from_previous_close(
     api: TestClient, fresh_store: EngineStore
 ) -> None:
     _seed(fresh_store)
 
     market = api.get("/api/v1/dashboard").json()["market"]
 
-    # Two polls occurred, so a previous spot exists and change is populated.
+    # Change is measured against the feed's previous close (24650 in the
+    # simulator), not the previous poll — so it reflects the day's move.
     assert market["spot"] is not None
     assert market["change"] is not None
     assert market["change_percent"] is not None
+    expected_change = float(market["spot"]) - 24650.0
+    assert float(market["change"]) == pytest.approx(expected_change, abs=0.01)
 
 
 # --- Empty market ------------------------------------------------------------

@@ -24,6 +24,9 @@ class SimulatedMarketDataSource:
         self._settings = settings
         self._rng = random.Random(seed)
         self._spot = Decimal("24700")
+        #: The prior trading day's close, held fixed across the session so the
+        #: day's change is measured against a stable baseline (as with Fyers).
+        self._prev_close = Decimal("24650")
         self._tick = 0
 
     async def get_spot(self) -> SpotQuote:
@@ -34,6 +37,7 @@ class SimulatedMarketDataSource:
         return SpotQuote(
             symbol=self._settings.NIFTY_SPOT_SYMBOL,
             ltp=self._spot,
+            prev_close=self._prev_close,
             timestamp=dt.datetime.now(dt.UTC),
         )
 

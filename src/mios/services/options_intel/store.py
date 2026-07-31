@@ -41,8 +41,9 @@ class EngineStore:
     qualification: TradeQualification | None = None
 
     spot_price: Decimal | None = None
-    #: Spot price from the previous poll, for computing spot change.
-    previous_spot_price: Decimal | None = None
+    #: Previous trading day's close (from the feed) — the baseline for the
+    #: day's change. Never the previous poll's price.
+    spot_prev_close: Decimal | None = None
     #: Canonical control from the previous poll, for the dominance shift arrow.
     previous_controlling_side: ControllingSide | None = None
     market_open: bool = False

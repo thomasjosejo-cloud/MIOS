@@ -53,9 +53,13 @@ def normalize_spot(raw: dict[str, Any], symbol: str) -> SpotQuote:
         raise ValueError(msg)
 
     value = entries[0]["v"]
+    prev_close_raw = value.get("prev_close_price")
     return SpotQuote(
         symbol=symbol,
         ltp=Decimal(str(value["lp"])),
+        prev_close=(
+            Decimal(str(prev_close_raw)) if prev_close_raw is not None else None
+        ),
         timestamp=dt.datetime.now(dt.UTC),
     )
 

@@ -95,16 +95,20 @@ def _log_consistency(
 
 
 def _market(store: EngineStore) -> MarketSection:
-    """Build the market header, deriving spot change from the previous poll."""
+    """Build the market header.
+
+    The day's change is measured against the previous trading day's close (from
+    the feed), matching the exchange — never against the previous poll's price.
+    """
     spot = store.spot_price
-    previous = store.previous_spot_price
+    prev_close = store.spot_prev_close
 
     change: Decimal | None = None
     change_percent: float | None = None
-    if spot is not None and previous is not None:
-        change = spot - previous
-        if previous != 0:
-            change_percent = round(float(change / previous * 100), 2)
+    if spot is not None and prev_close is not None:
+        change = spot - prev_close
+        if prev_close != 0:
+            change_percent = round(float(change / prev_close * 100), 2)
 
     return MarketSection(
         spot=spot,

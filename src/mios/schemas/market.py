@@ -105,11 +105,32 @@ class ControllingSide(StrEnum):
 
 
 class SpotQuote(BaseModel):
-    """Normalized spot price observation."""
+    """Normalized spot price observation.
+
+    `prev_close` is the previous trading day's close, straight from the feed —
+    the correct baseline for the day's change (never the previous poll's price).
+    `change` and `change_percent` are derived from it so every consumer reports
+    the same daily change the exchange does.
+    """
 
     symbol: str
     ltp: Decimal
+    prev_close: Decimal | None = None
     timestamp: dt.datetime
+
+    @property
+    def change(self) -> Decimal | None:
+        """Absolute change from the previous close, or None if unavailable."""
+        if self.prev_close is None:
+            return None
+        return self.ltp - self.prev_close
+
+    @property
+    def change_percent(self) -> float | None:
+        """Percent change from the previous close, or None if unavailable."""
+        if self.prev_close is None or self.prev_close == 0:
+            return None
+        return round(float((self.ltp - self.prev_close) / self.prev_close * 100), 2)
 
 
 class OptionQuote(BaseModel):

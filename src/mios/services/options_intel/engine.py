@@ -167,6 +167,7 @@ class OptionsIntelEngine:
         self._apply_to_store(
             result,
             spot_price=spot.ltp,
+            spot_prev_close=spot.prev_close,
             market_open=market_open,
             validation_available=validation_available,
         )
@@ -183,12 +184,13 @@ class OptionsIntelEngine:
         result: PipelineResult,
         *,
         spot_price: Decimal,
+        spot_prev_close: Decimal | None,
         market_open: bool,
         validation_available: bool,
     ) -> None:
         """Copy a pipeline result and metadata into the shared store."""
         store = self._store
-        store.previous_spot_price = store.spot_price
+        store.spot_prev_close = spot_prev_close
         store.previous_controlling_side = (
             store.context.controlling_side if store.context else None
         )
