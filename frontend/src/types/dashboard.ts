@@ -196,7 +196,6 @@ export interface EngineStatus {
 // --- Decision trace ("Show your work") — GET /api/v1/market/audit ---
 
 export type Sentiment = "bullish" | "bearish";
-export type StructurePattern = "breakout" | "breakdown" | "pullback" | "range";
 
 export interface StrikeContribution {
   strike: string;
