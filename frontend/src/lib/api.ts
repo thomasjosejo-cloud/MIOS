@@ -1,4 +1,5 @@
 import type {
+  AuditReport,
   DashboardResponse,
   OptionType,
   StrikeHistory,
@@ -42,4 +43,20 @@ export async function fetchStrikeHistory(
     throw new Error(`Strike history request failed: ${response.status}`);
   }
   return (await response.json()) as StrikeHistory;
+}
+
+/**
+ * Fetch the full decision trace ("Show your work"): every dashboard conclusion
+ * next to the raw per-strike evidence it came from. Backed by the existing
+ * server-side AuditReport — the frontend only renders it.
+ */
+export async function fetchAudit(signal?: AbortSignal): Promise<AuditReport> {
+  const response = await fetch("/api/v1/market/audit", {
+    signal,
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`Audit request failed: ${response.status}`);
+  }
+  return (await response.json()) as AuditReport;
 }
