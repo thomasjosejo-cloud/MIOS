@@ -14,7 +14,7 @@ WORKDIR /app
 # Dependencies are installed before the source is copied so the layer is reused
 # whenever only application code changes.
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 # README.md is required by the build backend: pyproject declares it as the
@@ -23,7 +23,7 @@ COPY README.md ./
 COPY src ./src
 COPY alembic.ini ./
 COPY migrations ./migrations
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # --- Runtime ----------------------------------------------------------------
