@@ -1,19 +1,25 @@
 import { ClassificationChip } from "@/components/ClassificationChip";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { OptionType, ParticipationRow } from "@/types/dashboard";
 
-// Participation Radar — answers "which strikes deserve attention first?".
-// Ranking and every value come from the backend (Radar engine's OI-addition
-// order + the Option Engine's percentage changes). The frontend only renders
-// and drives strike selection when a row is clicked.
+// Participation Radar — the five strike levels around the money (ATM, ATM±1,
+// ATM±2), one row per strike with the CE and PE side placed side by side. The
+// window is anchored on `atm_strike` from the API and shifts automatically with
+// spot. Every value (classification and the OI / premium / volume percentage
+// changes) comes straight from the engine's participation output — the frontend
+// only selects which strikes to show and renders them.
 
 export interface SelectedStrike {
   strike: string;
   option_type: OptionType;
 }
+
+/** How many strikes to show on each side of ATM. */
+const ATM_WINDOW = 2;
+
+type SideMap = Partial<Record<OptionType, ParticipationRow>>;
 
 function pctTone(value: number | null): string {
   if (value === null) return "text-muted";
@@ -22,47 +28,159 @@ function pctTone(value: number | null): string {
   return "text-muted";
 }
 
-/** A compact signed magnitude bar + value, centred on zero. */
-function PctCell({ value, max }: { value: number | null; max: number }) {
-  const magnitude = value === null ? 0 : Math.min(Math.abs(value) / (max || 1), 1);
-  const up = (value ?? 0) >= 0;
+/**
+ * The strike step of the ladder, read from the participation strikes relative
+ * to ATM (the nearest strike to ATM is one step away). Purely to place the
+ * ATM±k rows — no market value is computed. Null when it cannot be determined
+ * (e.g. no participation yet), in which case only the ATM row is shown.
+ */
+function inferStep(rows: ParticipationRow[], atm: number): number | null {
+  let step = Infinity;
+  for (const row of rows) {
+    const distance = Math.abs(Number(row.strike) - atm);
+    if (distance > 0) step = Math.min(step, distance);
+  }
+  if (step !== Infinity) return step;
+
+  // Fallback: the smallest gap between the distinct strikes present.
+  const strikes = [...new Set(rows.map((r) => Number(r.strike)))].sort(
+    (a, b) => a - b,
+  );
+  for (let i = 1; i < strikes.length; i++) {
+    step = Math.min(step, strikes[i] - strikes[i - 1]);
+  }
+  return step === Infinity ? null : step;
+}
+
+/** The ATM-relative label for an offset k, e.g. 0 -> "ATM", -1 -> "ATM−1". */
+function atmLabel(k: number): string {
+  if (k === 0) return "ATM";
+  return k > 0 ? `ATM+${k}` : `ATM−${-k}`;
+}
+
+interface Level {
+  offset: number;
+  strike: number;
+  sides: SideMap;
+}
+
+/** The ATM±window strike levels, highest strike first, with their CE/PE rows. */
+function buildLevels(rows: ParticipationRow[], atm: number): Level[] {
+  const byStrike = new Map<number, SideMap>();
+  for (const row of rows) {
+    const key = Number(row.strike);
+    const sides = byStrike.get(key) ?? {};
+    sides[row.option_type] = row;
+    byStrike.set(key, sides);
+  }
+
+  const step = inferStep(rows, atm);
+  const offsets = step === null ? [0] : offsetRange(ATM_WINDOW);
+
+  return offsets.map((offset) => {
+    const strike = step === null ? atm : atm + offset * step;
+    return { offset, strike, sides: byStrike.get(strike) ?? {} };
+  });
+}
+
+/** [w, w-1, …, 0, …, -w] — highest strike (ATM+w) rendered first. */
+function offsetRange(window: number): number[] {
+  const out: number[] = [];
+  for (let k = window; k >= -window; k--) out.push(k);
+  return out;
+}
+
+/** One metric within a side block: a small label above the signed percentage. */
+function Metric({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="flex items-center justify-end gap-2">
-      <span className="hidden h-1.5 w-14 overflow-hidden rounded-full bg-border sm:block">
-        <span
-          className={cn("block h-full rounded-full", up ? "bg-bullish" : "bg-bearish")}
-          style={{ width: `${magnitude * 100}%` }}
-          aria-hidden
-        />
-      </span>
-      <span className={cn("w-16 text-right font-semibold tabular-nums", pctTone(value))}>
+    <div className="text-right">
+      <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
+      <div className={cn("font-semibold tabular-nums", pctTone(value))}>
         {formatPercent(value)}
-      </span>
+      </div>
     </div>
+  );
+}
+
+/** The CE or PE side of a strike: classification + OI/Prem/Vol % changes. */
+function SideBlock({
+  row,
+  optionType,
+  isSelected,
+  onSelect,
+}: {
+  row: ParticipationRow | undefined;
+  optionType: OptionType;
+  isSelected: boolean;
+  onSelect: (s: SelectedStrike) => void;
+}) {
+  const accent = optionType === "CE" ? "text-bullish" : "text-bearish";
+
+  if (!row) {
+    return (
+      <div className="rounded-md border border-dashed border-border/60 px-3 py-2.5">
+        <div className={cn("text-[11px] font-semibold", accent)}>{optionType}</div>
+        <div className="mt-1 text-xs text-muted">No participation</div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect({ strike: row.strike, option_type: optionType })}
+      className={cn(
+        "w-full rounded-md border px-3 py-2.5 text-left transition-colors",
+        isSelected
+          ? "border-accent bg-accent/15 ring-1 ring-inset ring-accent"
+          : "border-border/60 hover:bg-border/40",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className={cn("text-[11px] font-semibold", accent)}>{optionType}</span>
+        <ClassificationChip classification={row.classification} />
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <Metric label="OI" value={row.oi_change_pct} />
+        <Metric label="Prem" value={row.premium_change_pct} />
+        <Metric label="Vol" value={row.volume_change_pct} />
+      </div>
+    </button>
   );
 }
 
 export function ParticipationRadar({
   rows,
+  atmStrike,
   selected,
   onSelect,
 }: {
   rows: ParticipationRow[];
+  atmStrike: string | null;
   selected: SelectedStrike | null;
   onSelect: (s: SelectedStrike) => void;
 }) {
-  const maxOi = rows.reduce((m, r) => Math.max(m, Math.abs(r.oi_change_pct ?? 0)), 0);
-  const maxPrem = rows.reduce((m, r) => Math.max(m, Math.abs(r.premium_change_pct ?? 0)), 0);
-  const maxVol = rows.reduce((m, r) => Math.max(m, Math.abs(r.volume_change_pct ?? 0)), 0);
+  const atm = atmStrike === null ? null : Number(atmStrike);
+  const hasAtm = atm !== null && !Number.isNaN(atm);
+  const levels = hasAtm ? buildLevels(rows, atm) : [];
+
+  const isSideSelected = (strike: number, optionType: OptionType): boolean =>
+    selected !== null &&
+    Number(selected.strike) === strike &&
+    selected.option_type === optionType;
 
   return (
     <Card id="participation" className="scroll-mt-16 overflow-hidden">
       <CardHeader>
         <CardTitle>Participation Radar</CardTitle>
-        <span className="text-xs text-muted">Strongest fresh OI · click to inspect</span>
+        <span className="text-xs text-muted">
+          {hasAtm
+            ? `ATM ${atmStrike} ± ${ATM_WINDOW} strikes · click a side to inspect`
+            : "Strikes around the money · click a side to inspect"}
+        </span>
       </CardHeader>
 
-      {rows.length === 0 ? (
+      {!hasAtm || rows.length === 0 ? (
         <div className="px-4 py-10 text-center">
           <p className="text-sm font-medium text-foreground">
             No meaningful participation detected yet.
@@ -76,74 +194,50 @@ export function ParticipationRadar({
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted">
-                <th className="px-3 py-2 font-medium">#</th>
                 <th className="px-3 py-2 font-medium">Strike</th>
-                <th className="px-3 py-2 font-medium">Classification</th>
-                <th className="px-3 py-2 text-right font-medium">OI %</th>
-                <th className="px-3 py-2 text-right font-medium">Prem %</th>
-                <th className="px-3 py-2 text-right font-medium">Vol %</th>
+                <th className="px-3 py-2 font-medium">CE</th>
+                <th className="px-3 py-2 font-medium">PE</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => {
-                const isSelected =
-                  selected?.strike === row.strike &&
-                  selected?.option_type === row.option_type;
-                const isTop = row.rank === 1;
+              {levels.map((level) => {
+                const isAtm = level.offset === 0;
                 return (
                   <tr
-                    key={`${row.strike}-${row.option_type}`}
-                    onClick={() =>
-                      onSelect({ strike: row.strike, option_type: row.option_type })
-                    }
+                    key={level.offset}
                     className={cn(
-                      "cursor-pointer border-b border-border/60 tabular-nums transition-colors",
-                      // Selection wins; the rank-1 row gets a persistent tint.
-                      isSelected
-                        ? "bg-accent/20 ring-1 ring-inset ring-accent"
-                        : isTop
-                          ? "bg-bullish/[0.06] hover:bg-bullish/10"
-                          : "hover:bg-border/50",
+                      "border-b border-border/60 align-top",
+                      isAtm && "bg-accent/[0.06]",
                     )}
                   >
-                    <td className="px-3 py-3">
-                      <span
-                        className={cn(
-                          "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
-                          isTop
-                            ? "bg-accent text-white"
-                            : "bg-border/70 text-muted",
-                        )}
-                      >
-                        {row.rank}
-                      </span>
-                    </td>
                     <td className="whitespace-nowrap px-3 py-3">
-                      <span
+                      <div className="font-bold tabular-nums text-foreground">
+                        {level.strike}
+                      </div>
+                      <div
                         className={cn(
-                          "mr-2 font-bold tabular-nums",
-                          isTop ? "text-lg text-foreground" : "text-foreground",
+                          "text-[11px] uppercase tracking-wide",
+                          isAtm ? "font-semibold text-accent" : "text-muted",
                         )}
                       >
-                        {row.strike}
-                      </span>
-                      <Badge
-                        variant={row.option_type === "CE" ? "bullish" : "bearish"}
-                      >
-                        {row.option_type}
-                      </Badge>
+                        {atmLabel(level.offset)}
+                      </div>
                     </td>
-                    <td className="px-3 py-3">
-                      <ClassificationChip classification={row.classification} />
+                    <td className="px-2 py-2.5">
+                      <SideBlock
+                        row={level.sides.CE}
+                        optionType="CE"
+                        isSelected={isSideSelected(level.strike, "CE")}
+                        onSelect={onSelect}
+                      />
                     </td>
-                    <td className="px-3 py-3">
-                      <PctCell value={row.oi_change_pct} max={maxOi} />
-                    </td>
-                    <td className="px-3 py-3">
-                      <PctCell value={row.premium_change_pct} max={maxPrem} />
-                    </td>
-                    <td className="px-3 py-3">
-                      <PctCell value={row.volume_change_pct} max={maxVol} />
+                    <td className="px-2 py-2.5">
+                      <SideBlock
+                        row={level.sides.PE}
+                        optionType="PE"
+                        isSelected={isSideSelected(level.strike, "PE")}
+                        onSelect={onSelect}
+                      />
                     </td>
                   </tr>
                 );

@@ -19,8 +19,9 @@ describe("responsive layout", () => {
 
     for (const label of [
       "Dashboard",
+      "Participation Radar",
       "Trade Status",
-      "Option Chain",
+      "Strike Evolution",
       "Engine Status",
     ]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();

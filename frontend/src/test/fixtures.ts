@@ -7,6 +7,7 @@ export const dashboardFixture: DashboardResponse = {
   data_source: "simulator",
   market: {
     spot: "25184.25",
+    atm_strike: "25200", // round(25184.25 / 50) * 50
     change: "86.25",
     change_percent: 0.34,
     status: "LIVE",
@@ -113,10 +114,22 @@ export const dashboardFixture: DashboardResponse = {
     important_strikes: ["25150"],
     evidence: ["Net CE OI change: +12,000"],
   },
+  // Ranked strongest-OI strikes, clustered around ATM (25200) so the
+  // Participation Radar's ATM±2 window (25100–25300) has a two-sided grid.
   participation: [
     {
       rank: 1,
-      strike: "25000",
+      strike: "25200",
+      option_type: "PE",
+      classification: "short_buildup",
+      oi_change: 3000,
+      oi_change_pct: 6.2,
+      premium_change_pct: -2.0,
+      volume_change_pct: 28.0,
+    },
+    {
+      rank: 2,
+      strike: "25250",
       option_type: "PE",
       classification: "short_buildup",
       oi_change: 2600,
@@ -125,7 +138,7 @@ export const dashboardFixture: DashboardResponse = {
       volume_change_pct: 40.4,
     },
     {
-      rank: 2,
+      rank: 3,
       strike: "25150",
       option_type: "CE",
       classification: "long_buildup",
@@ -133,6 +146,26 @@ export const dashboardFixture: DashboardResponse = {
       oi_change_pct: 3.54,
       premium_change_pct: 9.0,
       volume_change_pct: 34.0,
+    },
+    {
+      rank: 4,
+      strike: "25200",
+      option_type: "CE",
+      classification: "short_covering",
+      oi_change: 900,
+      oi_change_pct: 2.1,
+      premium_change_pct: 4.5,
+      volume_change_pct: 12.0,
+    },
+    {
+      rank: 5,
+      strike: "25100",
+      option_type: "PE",
+      classification: "long_unwinding",
+      oi_change: -1200,
+      oi_change_pct: -3.1,
+      premium_change_pct: -5.0,
+      volume_change_pct: 8.0,
     },
   ],
   option_chain: [
@@ -257,6 +290,7 @@ export const notConnectedFixture: DashboardResponse = {
   data_source: "none",
   market: {
     spot: null,
+    atm_strike: null,
     change: null,
     change_percent: null,
     status: "CLOSED",

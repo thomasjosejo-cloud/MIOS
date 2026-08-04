@@ -32,6 +32,12 @@ class MarketSection(BaseModel):
     """Spot price and session status for the dashboard header."""
 
     spot: Decimal | None
+    #: The at-the-money strike: the strike nearest spot on the existing strike
+    #: ladder (`round(spot / step) * step`). Pure display math over values the
+    #: pipeline already holds (spot, strike step) — it anchors the Participation
+    #: Radar's ATM±2 window and touches no analysis, classification, or
+    #: qualification logic.
+    atm_strike: Decimal | None
     change: Decimal | None
     change_percent: float | None
     status: str  # "LIVE" | "CLOSED"

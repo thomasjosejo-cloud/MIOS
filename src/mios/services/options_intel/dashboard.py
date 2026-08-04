@@ -10,6 +10,7 @@ option chain to the five CE and five PE strikes nearest the money.
 import datetime as dt
 from decimal import Decimal
 
+from mios.config import get_settings
 from mios.config.constants import AuthStatus
 from mios.core.logging import get_logger
 from mios.schemas.dashboard import (
@@ -49,7 +50,7 @@ def build_dashboard(
             else AuthStatus.NOT_AUTHENTICATED
         ),
         data_source=store.data_source,
-        market=_market(store),
+        market=_market(store, get_settings().OPTION_STRIKE_STEP),
         narrative=narrative,
         dominance=dominance,
         qualification=store.qualification,
@@ -133,11 +134,14 @@ def _log_consistency(
         )
 
 
-def _market(store: EngineStore) -> MarketSection:
+def _market(store: EngineStore, strike_step: int) -> MarketSection:
     """Build the market header.
 
     The day's change is measured against the previous trading day's close (from
     the feed), matching the exchange — never against the previous poll's price.
+    `atm_strike` is the strike nearest spot on the strike ladder — the same
+    `round(spot / step) * step` the audit and qualification paths already use —
+    provided here purely to anchor the Participation Radar's ATM window.
     """
     spot = store.spot_price
     prev_close = store.spot_prev_close
@@ -149,8 +153,13 @@ def _market(store: EngineStore) -> MarketSection:
         if prev_close != 0:
             change_percent = round(float(change / prev_close * 100), 2)
 
+    atm_strike: Decimal | None = None
+    if spot is not None and strike_step > 0:
+        atm_strike = Decimal(round(spot / strike_step) * strike_step)
+
     return MarketSection(
         spot=spot,
+        atm_strike=atm_strike,
         change=change,
         change_percent=change_percent,
         status="LIVE" if store.market_open else "CLOSED",

@@ -18,6 +18,9 @@ export type MarketSide = "CE" | "PE" | "neutral";
 
 export interface MarketSection {
   spot: string | null;
+  // At-the-money strike (nearest strike to spot on the ladder). Anchors the
+  // Participation Radar's ATM±2 window. Serialized as a decimal string.
+  atm_strike: string | null;
   change: string | null;
   change_percent: number | null;
   status: "LIVE" | "CLOSED";

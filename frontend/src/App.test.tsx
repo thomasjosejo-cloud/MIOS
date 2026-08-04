@@ -40,7 +40,7 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Market Dominance" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Option Chain" }),
+      screen.getByRole("heading", { name: "Participation Radar" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "What Is Happening Now" }),

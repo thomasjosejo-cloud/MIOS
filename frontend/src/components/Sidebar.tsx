@@ -1,11 +1,12 @@
-import { Activity, LayoutDashboard, ListTree, Target } from "lucide-react";
+import { Activity, LayoutDashboard, Radar, Target, TrendingUp } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { id: "top", label: "Dashboard", icon: LayoutDashboard },
+  { id: "participation", label: "Participation Radar", icon: Radar },
   { id: "qualification", label: "Trade Status", icon: Target },
-  { id: "option-chain", label: "Option Chain", icon: ListTree },
+  { id: "strike-evolution", label: "Strike Evolution", icon: TrendingUp },
   { id: "engine-status", label: "Engine Status", icon: Activity },
 ] as const;
 

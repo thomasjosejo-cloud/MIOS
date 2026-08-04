@@ -62,30 +62,3 @@ export const STATUS_LABEL: Record<TradeStatus, string> = {
 export function bandLabel(band: ConfidenceBand): string {
   return band.toUpperCase();
 }
-
-export type ChainMark = "qualified" | "watching" | "best" | null;
-
-/**
- * How an option-chain row relates to the current decision, for highlighting:
- *   - the qualified strike        -> "qualified" (🟢)
- *   - the watched best candidate  -> "watching"  (🟡) when no trade is qualified
- *   - the best candidate otherwise-> "best"      (⭐)
- * Matched by strike + option type against fields the API already provides.
- */
-export function markFor(
-  q: TradeQualification | null,
-  strike: string,
-  optionType: OptionType,
-): ChainMark {
-  if (!q) return null;
-  const same = (s: string | null, t: OptionType | null) =>
-    s === strike && t === optionType;
-
-  if (q.qualified && same(q.strike, q.option_type)) return "qualified";
-
-  const bc = q.best_candidate;
-  if (bc && same(bc.strike, bc.option_type)) {
-    return q.qualified ? "best" : "watching";
-  }
-  return null;
-}

@@ -291,6 +291,20 @@ def test_response_is_json_serializable_with_decimals(
     assert isinstance(body["option_chain"][0]["strike"], (int, float, str))
 
 
+def test_atm_strike_is_nearest_strike_to_spot() -> None:
+    # atm_strike anchors the Participation Radar's ATM window. It is the strike
+    # nearest spot on the ladder — round(spot / step) * step with the default
+    # 50-point step — and nothing more (no analysis or ranking).
+    store = EngineStore()
+    store.spot_price = Decimal("25184.25")  # rounds to 25200 on a 50 grid
+
+    assert build_dashboard(store).market.atm_strike == Decimal("25200")
+
+
+def test_atm_strike_is_none_without_spot() -> None:
+    assert build_dashboard(EngineStore()).market.atm_strike is None
+
+
 def test_data_age_is_deterministic_for_fixed_now() -> None:
     store = EngineStore()
     store.engine_running = True

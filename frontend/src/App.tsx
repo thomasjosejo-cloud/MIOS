@@ -11,6 +11,7 @@ import type { MarketSection } from "@/types/dashboard";
 
 const CLOSED_MARKET: MarketSection = {
   spot: null,
+  atm_strike: null,
   change: null,
   change_percent: null,
   status: "CLOSED",

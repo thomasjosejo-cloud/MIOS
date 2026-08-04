@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SelectedStrike } from "@/components/ParticipationRadar";
 import { useStrikeHistory } from "@/hooks/useStrikeHistory";
-import { formatClock, formatInt, formatPercent } from "@/lib/format";
+import { formatClock, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { StrikeHistoryPoint } from "@/types/dashboard";
 
@@ -61,14 +61,23 @@ export function StrikeEvolution({ selected }: { selected: SelectedStrike | null 
     <Card id="strike-evolution" className="scroll-mt-16 flex h-full flex-col overflow-hidden">
       <CardHeader>
         <CardTitle>Strike Evolution</CardTitle>
-        {selected && (
-          <span className="flex items-center gap-2 text-sm">
-            <span className="font-bold tabular-nums">{selected.strike}</span>
-            <Badge variant={selected.option_type === "CE" ? "bullish" : "bearish"}>
-              {selected.option_type}
-            </Badge>
-          </span>
-        )}
+        {/* The strike is the persistent header for everything below it. */}
+        <span className="mt-0.5 flex items-baseline gap-2">
+          {selected ? (
+            <>
+              <span className="text-xl font-extrabold tabular-nums text-foreground">
+                {selected.strike}
+              </span>
+              <Badge variant={selected.option_type === "CE" ? "bullish" : "bearish"}>
+                {selected.option_type}
+              </Badge>
+            </>
+          ) : (
+            <span className="text-sm text-muted">
+              Select a strike in Participation Radar
+            </span>
+          )}
+        </span>
       </CardHeader>
 
       {!selected ? (
@@ -103,40 +112,52 @@ export function StrikeEvolution({ selected }: { selected: SelectedStrike | null 
           </div>
 
           <div className="mb-1 text-[11px] uppercase tracking-wider text-muted">
-            Evolution
+            OI · Premium · Volume % evolution
           </div>
           <div className="max-h-72 overflow-auto rounded-md border border-border">
             <table className="w-full border-collapse text-sm">
               <thead className="sticky top-0 bg-card">
-                <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted">
-                  <th className="px-2.5 py-2 font-medium">Time</th>
-                  <th className="px-2.5 py-2 text-right font-medium">OI</th>
+                <tr className="border-b border-border text-[11px] uppercase tracking-wider text-muted">
                   <th className="px-2.5 py-2 text-right font-medium">OI %</th>
                   <th className="px-2.5 py-2 text-right font-medium">Prem %</th>
                   <th className="px-2.5 py-2 text-right font-medium">Vol %</th>
-                  <th className="px-2.5 py-2 font-medium">Classification</th>
+                  <th className="px-2.5 py-2 text-left font-medium">Classification</th>
+                  <th className="px-2.5 py-2 text-right font-medium">Time</th>
                 </tr>
               </thead>
               <tbody>
                 {[...points].reverse().map((p, i) => (
                   <tr key={i} className="border-b border-border/60 tabular-nums last:border-0">
-                    <td className="whitespace-nowrap px-2.5 py-1.5 text-muted">
-                      {formatClock(p.captured_at)}
-                    </td>
-                    <td className="px-2.5 py-1.5 text-right text-muted">
-                      {formatInt(p.oi)}
-                    </td>
-                    <td className={cn("px-2.5 py-1.5 text-right", pctTone(p.oi_change_pct))}>
+                    <td
+                      className={cn(
+                        "px-2.5 py-2 text-right font-semibold",
+                        pctTone(p.oi_change_pct),
+                      )}
+                    >
                       {formatPercent(p.oi_change_pct)}
                     </td>
-                    <td className={cn("px-2.5 py-1.5 text-right", pctTone(p.premium_change_pct))}>
+                    <td
+                      className={cn(
+                        "px-2.5 py-2 text-right font-semibold",
+                        pctTone(p.premium_change_pct),
+                      )}
+                    >
                       {formatPercent(p.premium_change_pct)}
                     </td>
-                    <td className={cn("px-2.5 py-1.5 text-right", pctTone(p.volume_change_pct))}>
+                    <td
+                      className={cn(
+                        "px-2.5 py-2 text-right font-semibold",
+                        pctTone(p.volume_change_pct),
+                      )}
+                    >
                       {formatPercent(p.volume_change_pct)}
                     </td>
-                    <td className="px-2.5 py-1.5">
+                    <td className="px-2.5 py-2">
                       <ClassificationChip classification={p.classification} />
+                    </td>
+                    {/* Timestamp demoted to small secondary text, trailing. */}
+                    <td className="whitespace-nowrap px-2.5 py-2 text-right text-[10px] text-muted">
+                      {formatClock(p.captured_at)}
                     </td>
                   </tr>
                 ))}
