@@ -159,6 +159,56 @@ export interface EngineStatus {
   data_age_seconds: number | null;
 }
 
+// --- Decision trace ("Show your work") — GET /api/v1/market/audit ---
+
+export type Sentiment = "bullish" | "bearish";
+export type StructurePattern = "breakout" | "breakdown" | "pullback" | "range";
+
+export interface StrikeContribution {
+  strike: string;
+  option_type: OptionType;
+  classification: Classification;
+  sentiment: Sentiment;
+  weight: number;
+  signed_score: number;
+}
+
+export interface MarketBias {
+  controlling_side: ControllingSide;
+  bull_score: number;
+  bear_score: number;
+  net_score: number;
+  contributions: StrikeContribution[];
+  evidence: string[];
+}
+
+export interface AuditStrikeRow {
+  strike: string;
+  option_type: OptionType;
+  oi_change: number;
+  oi_change_pct: number | null;
+  premium_change_pct: number | null;
+  volume_change_pct: number | null;
+  classification: Classification | null;
+  sentiment: Sentiment | null;
+  weight: number;
+  signed_score: number;
+}
+
+export interface AuditReport {
+  spot: string | null;
+  atm: string | null;
+  strikes: AuditStrikeRow[];
+  bias: MarketBias | null;
+  structure_trend: TrendDirection | null;
+  structure_pattern: StructurePattern | null;
+  momentum: MomentumState | null;
+  dominance: MarketDominance | null;
+  qualification: TradeQualification | null;
+  narrative: MarketNarrative | null;
+  consistency_warnings: string[];
+}
+
 export type ConnectionState =
   | "connected"
   | "connecting"

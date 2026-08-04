@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { AuditPanel } from "@/components/AuditPanel";
 import { EngineStatus } from "@/components/EngineStatus";
 import { MarketContextCard } from "@/components/MarketContextCard";
 import { MarketDominanceCard } from "@/components/MarketDominanceCard";
@@ -69,6 +70,10 @@ export function Dashboard({ data }: { data: DashboardResponse }) {
         qualification={data.qualification}
         selected={selected}
       />
+
+      {/* 6. "Show your work": every conclusion traced to raw per-strike
+          evidence. Collapsed by default — an explain/debug view. */}
+      <AuditPanel />
 
       <EngineStatus engine={data.engine} />
     </div>

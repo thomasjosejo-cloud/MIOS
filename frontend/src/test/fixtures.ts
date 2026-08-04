@@ -1,4 +1,4 @@
-import type { DashboardResponse } from "@/types/dashboard";
+import type { AuditReport, DashboardResponse } from "@/types/dashboard";
 
 /** A representative healthy, qualified-trade dashboard payload for tests. */
 export const dashboardFixture: DashboardResponse = {
@@ -270,4 +270,55 @@ export const notConnectedFixture: DashboardResponse = {
   ce_pe: null,
   option_chain: [],
   engine: { healthy: false, pipeline_runtime_ms: null, data_age_seconds: null },
+};
+
+/** A decision-trace audit payload for the "Show your work" view. */
+export const auditFixture: AuditReport = {
+  spot: "25184.25",
+  atm: "25200",
+  strikes: [
+    {
+      strike: "25150",
+      option_type: "CE",
+      oi_change: 1400,
+      oi_change_pct: 18.0,
+      premium_change_pct: 9.0,
+      volume_change_pct: 34.0,
+      classification: "long_buildup",
+      sentiment: "bullish",
+      weight: 1400,
+      signed_score: 1400,
+    },
+    {
+      strike: "25000",
+      option_type: "PE",
+      oi_change: 2600,
+      oi_change_pct: 5.35,
+      premium_change_pct: -1.29,
+      volume_change_pct: 40.4,
+      classification: "short_buildup",
+      sentiment: "bullish",
+      weight: 2600,
+      signed_score: 2600,
+    },
+  ],
+  bias: {
+    controlling_side: "bulls",
+    bull_score: 4000,
+    bear_score: 0,
+    net_score: 4000,
+    contributions: [],
+    evidence: [
+      "Bullish score 4,000 from 2 strike(s)",
+      "Bearish score 0 from 0 strike(s)",
+      "Net bias +4,000 => bulls",
+    ],
+  },
+  structure_trend: "uptrend",
+  structure_pattern: "breakout",
+  momentum: "increasing",
+  dominance: dashboardFixture.dominance,
+  qualification: dashboardFixture.qualification,
+  narrative: dashboardFixture.narrative,
+  consistency_warnings: [],
 };
