@@ -1,3 +1,5 @@
+import { TriangleAlert } from "lucide-react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { labelize } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -62,12 +64,24 @@ export function MarketContextCard({ context }: { context: MarketContext | null }
                   : "text-bearish"
               }
             />
-            {context.contradiction && (
-              <Row label="Contradiction" value="Yes" tone="text-bearish" />
-            )}
           </div>
         ) : (
           <p className="py-2 text-sm text-muted">No context yet.</p>
+        )}
+
+        {/* The contradiction is the single most decision-relevant fact MIOS
+            produces — often the *reason* a trade is not qualifying — so it gets
+            its own callout rather than a flat "Yes" row. Rendered verbatim. */}
+        {context?.contradiction && (
+          <div className="mt-3 rounded-md border-l-2 border-bearish bg-bearish/10 p-3">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-bearish">
+              <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
+              Contradiction
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-foreground">
+              {context.contradiction}
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>
