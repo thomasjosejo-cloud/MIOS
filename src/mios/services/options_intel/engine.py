@@ -15,6 +15,7 @@ import datetime as dt
 import time
 from collections.abc import Awaitable, Callable
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from mios.config import Settings
 from mios.core.logging import get_logger
@@ -35,6 +36,26 @@ from mios.services.options_intel.store import EngineStore
 logger = get_logger(__name__)
 
 ClassificationMap = dict[tuple[Decimal, OptionType], Classification]
+
+
+def _capture_session_open(
+    store: EngineStore,
+    spot_ltp: Decimal,
+    *,
+    market_open: bool,
+    local_date: dt.date,
+) -> None:
+    """Latch the session's opening price once, on the first open poll of a day.
+
+    Resets at the start of each new trading day (market-local), then captures
+    the first spot observed while the market is open and leaves it untouched for
+    the rest of the session, so the opening gap is a single static fact.
+    """
+    if store.session_date != local_date:
+        store.session_open = None
+        store.session_date = local_date
+    if market_open and store.session_open is None:
+        store.session_open = spot_ltp
 
 
 class OptionsIntelEngine:
@@ -153,6 +174,17 @@ class OptionsIntelEngine:
             },
         )
 
+        # Capture the session's opening price once (session-scoped state), so the
+        # Context Engine can describe the opening gap. Owned here, not in the
+        # pipeline, which stays pure with respect to I/O and session state.
+        local_date = dt.datetime.now(ZoneInfo(self._settings.MARKET_TIMEZONE)).date()
+        _capture_session_open(
+            self._store,
+            spot.ltp,
+            market_open=market_open,
+            local_date=local_date,
+        )
+
         started = time.perf_counter()
         result = run_pipeline(
             option_engine=self._option_engine,
@@ -161,6 +193,8 @@ class OptionsIntelEngine:
             spot=spot.ltp,
             settings=self._settings,
             previous_cepe=self._store.cepe,
+            session_open=self._store.session_open,
+            prev_close=spot.prev_close,
         )
         runtime_ms = (time.perf_counter() - started) * 1000
 

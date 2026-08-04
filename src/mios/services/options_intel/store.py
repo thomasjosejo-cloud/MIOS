@@ -44,6 +44,13 @@ class EngineStore:
     #: Previous trading day's close (from the feed) — the baseline for the
     #: day's change. Never the previous poll's price.
     spot_prev_close: Decimal | None = None
+    #: The session's opening price, captured once on the first poll taken while
+    #: the market is open, then held static for the rest of the session. Anchors
+    #: the opening-gap classification; None until the open has been observed.
+    session_open: Decimal | None = None
+    #: Market-local date of the current session, so `session_open` is reset when
+    #: a new trading day begins.
+    session_date: dt.date | None = None
     #: Canonical control from the previous poll, for the dominance shift arrow.
     previous_controlling_side: ControllingSide | None = None
     market_open: bool = False

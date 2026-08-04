@@ -12,6 +12,18 @@ export type Classification =
 
 export type ControllingSide = "bulls" | "bears" | "neutral";
 export type TrendDirection = "uptrend" | "downtrend" | "sideways";
+export type StructurePattern =
+  | "breakout"
+  | "breakdown"
+  | "pullback"
+  | "range";
+export type SwingLabel = "HH" | "HL" | "LH" | "LL";
+export type GapClassification =
+  | "flat"
+  | "gap_up_marginal"
+  | "gap_down_marginal"
+  | "gap_up"
+  | "gap_down";
 export type MomentumState = "increasing" | "decreasing" | "neutral";
 export type DominantParticipant = "buyers" | "writers" | "balanced";
 export type MarketSide = "CE" | "PE" | "neutral";
@@ -91,6 +103,13 @@ export interface MarketDominance {
   control_shift_to: string;
 }
 
+// A detected swing high or low. `price` is a decimal string; `timestamp` ISO.
+export interface SwingPoint {
+  timestamp: string;
+  price: string;
+  label: SwingLabel;
+}
+
 export interface MarketContext {
   controlling_side: ControllingSide;
   dominant_participant: DominantParticipant;
@@ -102,6 +121,15 @@ export interface MarketContext {
   contradiction: string | null;
   immediate_support: string | null;
   immediate_resistance: string | null;
+  // Passthrough of the Structure Engine's already-computed price structure.
+  structure_pattern: StructurePattern;
+  swing_high: string | null;
+  swing_low: string | null;
+  swings: SwingPoint[];
+  // How the session opened vs the prior close; both null until the open is
+  // captured. Descriptive only — computed once and static for the session.
+  gap_classification: GapClassification | null;
+  gap_pct: number | null;
   statements: string[];
   evidence: string[];
 }

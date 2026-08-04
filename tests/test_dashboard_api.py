@@ -311,6 +311,34 @@ def test_atm_strike_is_none_without_spot() -> None:
     assert market.strike_step == 50
 
 
+def test_context_exposes_structure_and_gap_fields(
+    api: TestClient, fresh_store: EngineStore
+) -> None:
+    # The context section carries the passed-through structure fields and the
+    # opening-gap fields (values may be None depending on session state).
+    _seed(fresh_store)
+
+    context = api.get("/api/v1/dashboard").json()["context"]
+
+    assert context is not None
+    for key in (
+        "structure_pattern",
+        "swing_high",
+        "swing_low",
+        "swings",
+        "gap_classification",
+        "gap_pct",
+    ):
+        assert key in context
+    assert context["structure_pattern"] in (
+        "breakout",
+        "breakdown",
+        "pullback",
+        "range",
+    )
+    assert isinstance(context["swings"], list)
+
+
 def test_data_age_is_deterministic_for_fixed_now() -> None:
     store = EngineStore()
     store.engine_running = True

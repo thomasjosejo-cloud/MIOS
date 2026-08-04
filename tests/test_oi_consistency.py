@@ -43,6 +43,11 @@ def _context(control: ControllingSide) -> MarketContext:
         contradiction=None,
         immediate_support=Decimal(24650),
         immediate_resistance=Decimal(24750),
+        structure_pattern=StructurePattern.RANGE,
+        swing_high=Decimal(24800),
+        swing_low=Decimal(24600),
+        gap_classification=None,
+        gap_pct=None,
         statements=["s"],
         evidence=["e"],
     )

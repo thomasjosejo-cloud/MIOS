@@ -23,6 +23,7 @@ from mios.schemas.market import (
     StructureState,
     TrendDirection,
 )
+from mios.services.options_intel import gap as gap_engine
 
 
 def build_context(
@@ -33,6 +34,8 @@ def build_context(
     bias: MarketBias,
     *,
     spot: Decimal,
+    session_open: Decimal | None = None,
+    prev_close: Decimal | None = None,
 ) -> MarketContext:
     """Build the synthesized market context from upstream engine outputs.
 
@@ -40,7 +43,12 @@ def build_context(
     Context, Dominance, Qualification, and the Narrative always agree on who is
     in control. Structure then either validates or contradicts that control; it
     no longer decides it.
+
+    The structure fields (`structure_pattern`, swing high/low, `swings`) are a
+    direct passthrough of the already-computed `StructureState`. The opening-gap
+    fields describe how the session opened versus the prior close.
     """
+    gap_classification, gap_pct = gap_engine.classify_gap(session_open, prev_close)
     pe_writing = _strikes(
         classifications, OptionType.PE, Classification.SHORT_BUILDUP, spot, above=False
     )
@@ -89,6 +97,12 @@ def build_context(
         contradiction=contradiction,
         immediate_support=structure.immediate_support,
         immediate_resistance=structure.immediate_resistance,
+        structure_pattern=structure.pattern,
+        swing_high=structure.swing_high,
+        swing_low=structure.swing_low,
+        swings=structure.swings,
+        gap_classification=gap_classification,
+        gap_pct=gap_pct,
         statements=statements,
         evidence=evidence,
     )

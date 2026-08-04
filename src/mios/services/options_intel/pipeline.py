@@ -74,8 +74,15 @@ def run_pipeline(
     spot: Decimal,
     settings: Settings,
     previous_cepe: CePeComparison | None,
+    session_open: Decimal | None = None,
+    prev_close: Decimal | None = None,
 ) -> PipelineResult:
-    """Run every engine in order for one poll and return all outputs."""
+    """Run every engine in order for one poll and return all outputs.
+
+    `session_open` and `prev_close` are session-scoped state owned by the
+    orchestrator, passed through to the Context Engine solely so it can describe
+    the opening gap; no engine here computes or retains them.
+    """
     strike_states = option_engine.update_all(option_quotes)
 
     classifications = classification.classify_all(
@@ -115,7 +122,14 @@ def run_pipeline(
         acceleration_threshold=settings.MOMENTUM_ACCELERATION_THRESHOLD,
     )
     context = context_engine.build_context(
-        cepe, structure, momentum, classifications, bias, spot=spot
+        cepe,
+        structure,
+        momentum,
+        classifications,
+        bias,
+        spot=spot,
+        session_open=session_open,
+        prev_close=prev_close,
     )
     # The Trade Qualification Engine makes the final decision from the four
     # gates, reading the upstream outputs only.

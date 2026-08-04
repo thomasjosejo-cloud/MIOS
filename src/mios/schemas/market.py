@@ -69,6 +69,20 @@ class StructurePattern(StrEnum):
     RANGE = "range"
 
 
+class GapClassification(StrEnum):
+    """How the session opened relative to the prior day's close.
+
+    Purely descriptive of what already happened at the open — computed once at
+    the session open and static for the rest of the session, never a forecast.
+    """
+
+    FLAT = "flat"
+    GAP_UP_MARGINAL = "gap_up_marginal"
+    GAP_DOWN_MARGINAL = "gap_down_marginal"
+    GAP_UP = "gap_up"
+    GAP_DOWN = "gap_down"
+
+
 class MomentumState(StrEnum):
     """Whether the rate of movement is accelerating, fading, or steady."""
 
@@ -343,6 +357,17 @@ class MarketContext(BaseModel):
     contradiction: str | None
     immediate_support: Decimal | None
     immediate_resistance: Decimal | None
+    #: Price-action pattern and swing structure, passed straight through from the
+    #: Structure Engine's `StructureState` (already computed; no new logic).
+    structure_pattern: StructurePattern
+    swing_high: Decimal | None
+    swing_low: Decimal | None
+    swings: list[SwingPoint] = Field(default_factory=list)
+    #: How this session opened versus the prior day's close. Computed once at the
+    #: open and static for the session — descriptive, never a forecast. Both are
+    #: None until the session's opening price has been captured.
+    gap_classification: GapClassification | None
+    gap_pct: float | None
     statements: list[str]
     evidence: list[str]
 
