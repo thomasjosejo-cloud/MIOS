@@ -1,4 +1,4 @@
-import { TriangleAlert } from "lucide-react";
+import { ChevronRight, TriangleAlert } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { labelize } from "@/lib/format";
@@ -82,6 +82,31 @@ export function MarketContextCard({ context }: { context: MarketContext | null }
               {context.contradiction}
             </p>
           </div>
+        )}
+
+        {/* The engine's factual evidence lines, one click away — secondary
+            detail that backs the summary above without competing with it. */}
+        {context && context.evidence.length > 0 && (
+          <details className="group mt-3">
+            <summary className="flex cursor-pointer select-none items-center gap-1 text-xs text-muted transition-colors hover:text-foreground">
+              <ChevronRight
+                className="h-3.5 w-3.5 transition-transform group-open:rotate-90"
+                aria-hidden
+              />
+              Evidence ({context.evidence.length})
+            </summary>
+            <ul className="mt-2 space-y-1 pl-1">
+              {context.evidence.map((line, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-muted">
+                  <span
+                    className="mt-1 h-1 w-1 shrink-0 rounded-full bg-muted"
+                    aria-hidden
+                  />
+                  <span className="text-foreground/80">{line}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </CardContent>
     </Card>

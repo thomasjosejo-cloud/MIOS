@@ -30,4 +30,17 @@ describe("MarketContextCard", () => {
 
     expect(screen.queryByText("Contradiction")).not.toBeInTheDocument();
   });
+
+  it("surfaces context.evidence as a one-click disclosure", () => {
+    const context: MarketContext = {
+      ...baseContext,
+      evidence: ["Net CE OI change: +12,000", "Latest swing high: 25200 (HH)"],
+    };
+    render(<MarketContextCard context={context} />);
+
+    // Collapsed by default: a summary showing the count, and the lines present
+    // in the DOM (details renders children, hidden until opened).
+    expect(screen.getByText("Evidence (2)")).toBeInTheDocument();
+    expect(screen.getByText("Net CE OI change: +12,000")).toBeInTheDocument();
+  });
 });
