@@ -8,6 +8,7 @@ export const dashboardFixture: DashboardResponse = {
   market: {
     spot: "25184.25",
     atm_strike: "25200", // round(25184.25 / 50) * 50
+    strike_step: 50,
     change: "86.25",
     change_percent: 0.34,
     status: "LIVE",
@@ -291,6 +292,7 @@ export const notConnectedFixture: DashboardResponse = {
   market: {
     spot: null,
     atm_strike: null,
+    strike_step: 50,
     change: null,
     change_percent: null,
     status: "CLOSED",

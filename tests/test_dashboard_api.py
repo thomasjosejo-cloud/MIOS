@@ -298,11 +298,17 @@ def test_atm_strike_is_nearest_strike_to_spot() -> None:
     store = EngineStore()
     store.spot_price = Decimal("25184.25")  # rounds to 25200 on a 50 grid
 
-    assert build_dashboard(store).market.atm_strike == Decimal("25200")
+    market = build_dashboard(store).market
+    assert market.atm_strike == Decimal("25200")
+    # The ladder step is echoed alongside so the radar can place ATM±k exactly.
+    assert market.strike_step == 50
 
 
 def test_atm_strike_is_none_without_spot() -> None:
-    assert build_dashboard(EngineStore()).market.atm_strike is None
+    # No spot -> no ATM, but the strike step is still reported (config echo).
+    market = build_dashboard(EngineStore()).market
+    assert market.atm_strike is None
+    assert market.strike_step == 50
 
 
 def test_data_age_is_deterministic_for_fixed_now() -> None:

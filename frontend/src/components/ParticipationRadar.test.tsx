@@ -6,6 +6,7 @@ import { ParticipationRadar } from "@/components/ParticipationRadar";
 import { dashboardFixture, notConnectedFixture } from "@/test/fixtures";
 
 const atm = dashboardFixture.market.atm_strike;
+const step = dashboardFixture.market.strike_step;
 
 describe("ParticipationRadar", () => {
   it("renders the ATM±2 window anchored on the ATM strike", () => {
@@ -13,6 +14,7 @@ describe("ParticipationRadar", () => {
       <ParticipationRadar
         rows={dashboardFixture.participation}
         atmStrike={atm}
+        strikeStep={step}
         selected={null}
         onSelect={() => {}}
       />,
@@ -35,6 +37,7 @@ describe("ParticipationRadar", () => {
       <ParticipationRadar
         rows={dashboardFixture.participation}
         atmStrike={atm}
+        strikeStep={step}
         selected={null}
         onSelect={() => {}}
       />,
@@ -55,6 +58,7 @@ describe("ParticipationRadar", () => {
       <ParticipationRadar
         rows={dashboardFixture.participation}
         atmStrike={atm}
+        strikeStep={step}
         selected={null}
         onSelect={onSelect}
       />,
@@ -71,6 +75,7 @@ describe("ParticipationRadar", () => {
       <ParticipationRadar
         rows={[]}
         atmStrike={notConnectedFixture.market.atm_strike}
+        strikeStep={notConnectedFixture.market.strike_step}
         selected={null}
         onSelect={() => {}}
       />,
@@ -86,6 +91,7 @@ describe("ParticipationRadar", () => {
       <ParticipationRadar
         rows={dashboardFixture.participation}
         atmStrike={atm}
+        strikeStep={step}
         selected={null}
         onSelect={() => {}}
       />,

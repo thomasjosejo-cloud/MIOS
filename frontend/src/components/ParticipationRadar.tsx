@@ -28,30 +28,6 @@ function pctTone(value: number | null): string {
   return "text-muted";
 }
 
-/**
- * The strike step of the ladder, read from the participation strikes relative
- * to ATM (the nearest strike to ATM is one step away). Purely to place the
- * ATM±k rows — no market value is computed. Null when it cannot be determined
- * (e.g. no participation yet), in which case only the ATM row is shown.
- */
-function inferStep(rows: ParticipationRow[], atm: number): number | null {
-  let step = Infinity;
-  for (const row of rows) {
-    const distance = Math.abs(Number(row.strike) - atm);
-    if (distance > 0) step = Math.min(step, distance);
-  }
-  if (step !== Infinity) return step;
-
-  // Fallback: the smallest gap between the distinct strikes present.
-  const strikes = [...new Set(rows.map((r) => Number(r.strike)))].sort(
-    (a, b) => a - b,
-  );
-  for (let i = 1; i < strikes.length; i++) {
-    step = Math.min(step, strikes[i] - strikes[i - 1]);
-  }
-  return step === Infinity ? null : step;
-}
-
 /** The ATM-relative label for an offset k, e.g. 0 -> "ATM", -1 -> "ATM−1". */
 function atmLabel(k: number): string {
   if (k === 0) return "ATM";
@@ -65,7 +41,11 @@ interface Level {
 }
 
 /** The ATM±window strike levels, highest strike first, with their CE/PE rows. */
-function buildLevels(rows: ParticipationRow[], atm: number): Level[] {
+function buildLevels(
+  rows: ParticipationRow[],
+  atm: number,
+  step: number,
+): Level[] {
   const byStrike = new Map<number, SideMap>();
   for (const row of rows) {
     const key = Number(row.strike);
@@ -74,11 +54,8 @@ function buildLevels(rows: ParticipationRow[], atm: number): Level[] {
     byStrike.set(key, sides);
   }
 
-  const step = inferStep(rows, atm);
-  const offsets = step === null ? [0] : offsetRange(ATM_WINDOW);
-
-  return offsets.map((offset) => {
-    const strike = step === null ? atm : atm + offset * step;
+  return offsetRange(ATM_WINDOW).map((offset) => {
+    const strike = atm + offset * step;
     return { offset, strike, sides: byStrike.get(strike) ?? {} };
   });
 }
@@ -152,17 +129,19 @@ function SideBlock({
 export function ParticipationRadar({
   rows,
   atmStrike,
+  strikeStep,
   selected,
   onSelect,
 }: {
   rows: ParticipationRow[];
   atmStrike: string | null;
+  strikeStep: number;
   selected: SelectedStrike | null;
   onSelect: (s: SelectedStrike) => void;
 }) {
   const atm = atmStrike === null ? null : Number(atmStrike);
   const hasAtm = atm !== null && !Number.isNaN(atm);
-  const levels = hasAtm ? buildLevels(rows, atm) : [];
+  const levels = hasAtm ? buildLevels(rows, atm, strikeStep) : [];
 
   const isSideSelected = (strike: number, optionType: OptionType): boolean =>
     selected !== null &&

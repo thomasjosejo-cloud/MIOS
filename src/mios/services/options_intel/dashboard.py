@@ -141,7 +141,8 @@ def _market(store: EngineStore, strike_step: int) -> MarketSection:
     the feed), matching the exchange — never against the previous poll's price.
     `atm_strike` is the strike nearest spot on the strike ladder — the same
     `round(spot / step) * step` the audit and qualification paths already use —
-    provided here purely to anchor the Participation Radar's ATM window.
+    and `strike_step` echoes the ladder's step; both are provided purely to let
+    the Participation Radar place its ATM window without inferring the spacing.
     """
     spot = store.spot_price
     prev_close = store.spot_prev_close
@@ -160,6 +161,7 @@ def _market(store: EngineStore, strike_step: int) -> MarketSection:
     return MarketSection(
         spot=spot,
         atm_strike=atm_strike,
+        strike_step=strike_step,
         change=change,
         change_percent=change_percent,
         status="LIVE" if store.market_open else "CLOSED",

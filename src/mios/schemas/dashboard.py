@@ -38,6 +38,10 @@ class MarketSection(BaseModel):
     #: Radar's ATM±2 window and touches no analysis, classification, or
     #: qualification logic.
     atm_strike: Decimal | None
+    #: The strike ladder's step (the existing `OPTION_STRIKE_STEP` setting),
+    #: surfaced so the Participation Radar can place the ATM±k rows exactly
+    #: rather than inferring the spacing. Configuration echo only — no logic.
+    strike_step: int
     change: Decimal | None
     change_percent: float | None
     status: str  # "LIVE" | "CLOSED"

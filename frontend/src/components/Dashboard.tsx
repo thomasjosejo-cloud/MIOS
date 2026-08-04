@@ -46,6 +46,7 @@ export function Dashboard({ data }: { data: DashboardResponse }) {
       <ParticipationRadar
         rows={data.participation}
         atmStrike={data.market.atm_strike}
+        strikeStep={data.market.strike_step}
         selected={selected}
         onSelect={selectStrike}
       />

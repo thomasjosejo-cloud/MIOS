@@ -21,6 +21,9 @@ export interface MarketSection {
   // At-the-money strike (nearest strike to spot on the ladder). Anchors the
   // Participation Radar's ATM±2 window. Serialized as a decimal string.
   atm_strike: string | null;
+  // The strike ladder's step (OPTION_STRIKE_STEP), used to place the ATM±k
+  // rows exactly. Serialized as a number.
+  strike_step: number;
   change: string | null;
   change_percent: number | null;
   status: "LIVE" | "CLOSED";
