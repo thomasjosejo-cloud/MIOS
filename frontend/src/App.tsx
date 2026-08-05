@@ -5,7 +5,6 @@ import { Dashboard } from "@/components/Dashboard";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { ErrorState } from "@/components/ErrorState";
 import { Header } from "@/components/Header";
-import { Sidebar } from "@/components/Sidebar";
 import { useDashboard } from "@/hooks/useDashboard";
 import type { MarketSection } from "@/types/dashboard";
 
@@ -38,15 +37,13 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header
-          market={data?.market ?? CLOSED_MARKET}
-          connection={data?.connection_state ?? "not_connected"}
-        />
-        <main className="flex-1 overflow-y-auto p-4">{content}</main>
-      </div>
+    // Single continuous page — one column, one scroll, no navigation.
+    <div className="min-h-screen bg-background text-foreground">
+      <Header
+        market={data?.market ?? CLOSED_MARKET}
+        connection={data?.connection_state ?? "not_connected"}
+      />
+      <main className="mx-auto w-full max-w-2xl px-3 py-3">{content}</main>
     </div>
   );
 }

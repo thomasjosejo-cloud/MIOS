@@ -1,24 +1,10 @@
 import { cn } from "@/lib/utils";
-import {
-  CONNECTION_META,
-  toneClass,
-  toneDotClass,
-} from "@/lib/connection";
-import {
-  formatClock,
-  formatDecimal,
-  formatPercent,
-  formatSignedDecimal,
-  signOf,
-} from "@/lib/format";
+import { CONNECTION_META, toneClass, toneDotClass } from "@/lib/connection";
 import type { ConnectionState, MarketSection } from "@/types/dashboard";
 
-function directionClass(sign: -1 | 0 | 1): string {
-  if (sign > 0) return "text-bullish";
-  if (sign < 0) return "text-bearish";
-  return "text-muted";
-}
-
+// Section 1: the page's only chrome — wordmark, Fyers connection status, and
+// the market open/closed state. No navigation (single-page app), no price (the
+// price row is its own section in the page body).
 export function Header({
   market,
   connection,
@@ -27,24 +13,22 @@ export function Header({
   connection: ConnectionState;
 }) {
   const isLive = market.status === "LIVE";
-  const changeSign = signOf(market.change);
   const conn = CONNECTION_META[connection];
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-      <div className="flex h-14 items-center justify-between px-4">
-        <div className="flex items-center gap-2 md:hidden">
-          <span className="text-sm font-semibold tracking-wide">MIOS</span>
-        </div>
-        <div className="ml-auto flex items-center gap-4 text-xs font-medium">
-          <span className="flex items-center gap-2" title="Fyers connection">
+    <header className="sticky top-0 z-20 border-b-[0.5px] border-border bg-background/95 backdrop-blur">
+      <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between px-3">
+        <span className="text-sm font-bold tracking-wide text-foreground">MIOS</span>
+
+        <div className="flex items-center gap-4 text-xs font-medium">
+          <span className="flex items-center gap-1.5" title="Fyers connection">
             <span
               className={cn("h-2 w-2 rounded-full", toneDotClass(conn.tone))}
               aria-hidden
             />
             <span className={toneClass(conn.tone)}>{conn.label}</span>
           </span>
-          <span className="flex items-center gap-2" title="Market session">
+          <span className="flex items-center gap-1.5" title="Market session">
             <span
               className={cn(
                 "h-2 w-2 rounded-full",
@@ -57,29 +41,6 @@ export function Header({
             </span>
           </span>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 px-4 pb-3">
-        <span className="text-sm font-semibold text-muted">NIFTY</span>
-        <span
-          className={cn(
-            "text-lg font-semibold tabular-nums",
-            directionClass(changeSign),
-          )}
-        >
-          {formatSignedDecimal(market.change)}
-        </span>
-        <span className="text-2xl font-bold tabular-nums text-foreground">
-          {formatDecimal(market.spot)}
-        </span>
-        <span
-          className={cn("text-sm font-medium tabular-nums", directionClass(changeSign))}
-        >
-          {formatPercent(market.change_percent)}
-        </span>
-        <span className="ml-auto text-xs text-muted">
-          Updated {formatClock(market.updated_at)}
-        </span>
       </div>
     </header>
   );

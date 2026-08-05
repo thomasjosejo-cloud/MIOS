@@ -42,11 +42,22 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: "Participation Radar" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "What Is Happening Now" }),
-    ).toBeInTheDocument();
+    // Price row's opening-gap badge and the structure context chips render.
+    expect(screen.getByText("Gap Up")).toBeInTheDocument();
+    expect(screen.getByText("Uptrend")).toBeInTheDocument();
+    expect(screen.getByText("Breakout")).toBeInTheDocument();
     // Evidence items are rendered exactly as received from the API.
     expect(screen.getByText("Buyers dominant")).toBeInTheDocument();
+  });
+
+  it("renders as a single continuous page with no sidebar navigation", async () => {
+    mockFetchOnce(dashboardFixture);
+    const { container } = renderWithClient(<App />);
+
+    await screen.findByText("TRADE QUALIFIED");
+    // Single-page rebuild: no sidebar element and no nav landmark of any kind.
+    expect(container.querySelector("aside")).toBeNull();
+    expect(container.querySelector("nav")).toBeNull();
   });
 
   it("shows the connection gate when not connected to Fyers", async () => {

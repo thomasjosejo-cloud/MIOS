@@ -139,7 +139,7 @@ export function RecommendedTradeCard({
 }) {
   if (!qualification) {
     return (
-      <Card id="qualification" className="scroll-mt-16 border-2 p-5">
+      <Card id="qualification" className="scroll-mt-16 border-[0.5px] p-5">
         <SectionLabel>Recommended Trade</SectionLabel>
         <p className="mt-3 text-sm text-muted">Awaiting engine data…</p>
       </Card>
@@ -153,7 +153,7 @@ export function RecommendedTradeCard({
   return (
     <Card
       id="qualification"
-      className={cn("scroll-mt-16 border-2 p-5", style.frame)}
+      className={cn("scroll-mt-16 border-[0.5px] p-5", style.frame)}
     >
       {/* Header: title + status pill */}
       <div className="flex items-center justify-between">

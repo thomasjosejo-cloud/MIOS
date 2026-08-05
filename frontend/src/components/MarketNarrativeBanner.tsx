@@ -5,22 +5,21 @@ import type { MarketNarrative } from "@/types/dashboard";
 // comes from the API's narrative — the frontend only styles it (tone rail and
 // hierarchy); it never rewrites or invents the text.
 
-const TONE: Record<string, { frame: string; rail: string; dot: string; label: string }> = {
+// The background tint tracks the narrative's real tone — bullish green, bearish
+// red, neutral muted. A tint, not a gradient; colour follows genuine state.
+const TONE: Record<string, { surface: string; dot: string; label: string }> = {
   bullish: {
-    frame: "border-bullish/30",
-    rail: "bg-bullish",
+    surface: "border-bullish/40 bg-bullish/10",
     dot: "text-bullish",
     label: "Bullish",
   },
   bearish: {
-    frame: "border-bearish/30",
-    rail: "bg-bearish",
+    surface: "border-bearish/40 bg-bearish/10",
     dot: "text-bearish",
     label: "Bearish",
   },
   neutral: {
-    frame: "border-border",
-    rail: "bg-muted",
+    surface: "border-border bg-card",
     dot: "text-muted",
     label: "Neutral",
   },
@@ -37,19 +36,21 @@ export function MarketNarrativeBanner({
     <section
       id="narrative"
       className={cn(
-        "relative scroll-mt-16 overflow-hidden rounded-lg border bg-card pl-5 pr-5 py-4",
-        tone.frame,
+        "scroll-mt-16 rounded-xl border-[0.5px] px-4 py-4",
+        tone.surface,
       )}
     >
-      {/* Tone rail — a quiet directional cue, not a decorative gradient. */}
-      <span className={cn("absolute inset-y-0 left-0 w-1", tone.rail)} aria-hidden />
-
       <div className="flex items-center gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
           Market Narrative
         </span>
         {narrative && (
-          <span className={cn("text-[11px] font-semibold uppercase tracking-wide", tone.dot)}>
+          <span
+            className={cn(
+              "text-[11px] font-semibold uppercase tracking-wide",
+              tone.dot,
+            )}
+          >
             · {tone.label}
           </span>
         )}

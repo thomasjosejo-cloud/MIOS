@@ -172,7 +172,7 @@ export function ParticipationRadar({
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted">
+              <tr className="border-b-[0.5px] border-border text-left text-[11px] uppercase tracking-wider text-muted">
                 <th className="px-3 py-2 font-medium">Strike</th>
                 <th className="px-3 py-2 font-medium">CE</th>
                 <th className="px-3 py-2 font-medium">PE</th>
@@ -185,8 +185,10 @@ export function ParticipationRadar({
                   <tr
                     key={level.offset}
                     className={cn(
-                      "border-b border-border/60 align-top",
-                      isAtm && "bg-accent/[0.06]",
+                      "align-top [&>td]:border-b-[0.5px] [&>td]:border-border/60",
+                      // The ATM row is the one 2px highlight on the whole page.
+                      isAtm &&
+                        "bg-accent/[0.06] [&>td]:border-y-2 [&>td]:border-accent",
                     )}
                   >
                     <td className="whitespace-nowrap px-3 py-3">
