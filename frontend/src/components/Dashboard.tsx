@@ -1,6 +1,9 @@
 import { useCallback, useState } from "react";
 
+import { AuditPanel } from "@/components/AuditPanel";
 import { ContextChips } from "@/components/ContextChips";
+import { ContextDisclosure } from "@/components/ContextDisclosure";
+import { Diagnostics } from "@/components/Diagnostics";
 import { LevelsFooter } from "@/components/LevelsFooter";
 import { MarketDominanceCard } from "@/components/MarketDominanceCard";
 import { MarketNarrativeBanner } from "@/components/MarketNarrativeBanner";
@@ -45,8 +48,12 @@ export function Dashboard({ data }: { data: DashboardResponse }) {
         gapPct={data.context?.gap_pct ?? null}
       />
 
-      {/* 3. Narrative — tone-coloured background, headline. */}
-      <MarketNarrativeBanner narrative={data.narrative} />
+      {/* 3. Narrative — tone-coloured background, headline — with the market
+          context, contradiction and evidence folded in as a one-tap expand. */}
+      <div className="space-y-2">
+        <MarketNarrativeBanner narrative={data.narrative} />
+        <ContextDisclosure context={data.context} />
+      </div>
 
       {/* 4. Context chips: trend, pattern, recent swing (omitted if no swings). */}
       <ContextChips context={data.context} />
@@ -81,6 +88,15 @@ export function Dashboard({ data }: { data: DashboardResponse }) {
 
       {/* 10. Footer — immediate support / resistance. */}
       <LevelsFooter context={data.context} />
+
+      {/* Bottom utility rows: the full decision trace and compact operational
+          diagnostics, both collapsed by default. */}
+      <AuditPanel />
+      <Diagnostics
+        engine={data.engine}
+        connection={data.connection_state}
+        market={data.market}
+      />
     </div>
   );
 }

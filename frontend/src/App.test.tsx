@@ -44,7 +44,9 @@ describe("App", () => {
     ).toBeInTheDocument();
     // Price row's opening-gap badge and the structure context chips render.
     expect(screen.getByText("Gap Up")).toBeInTheDocument();
-    expect(screen.getByText("Uptrend")).toBeInTheDocument();
+    // "Uptrend" appears in the context chip and again in the (folded) context
+    // detail card, so match at least one.
+    expect(screen.getAllByText("Uptrend").length).toBeGreaterThan(0);
     expect(screen.getByText("Breakout")).toBeInTheDocument();
     // Evidence items are rendered exactly as received from the API.
     expect(screen.getByText("Buyers dominant")).toBeInTheDocument();
