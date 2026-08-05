@@ -43,7 +43,7 @@ export default function App() {
         market={data?.market ?? CLOSED_MARKET}
         connection={data?.connection_state ?? "not_connected"}
       />
-      <main className="mx-auto w-full max-w-2xl px-3 py-3">{content}</main>
+      <main className="mx-auto w-full max-w-[480px] px-3 py-3">{content}</main>
     </div>
   );
 }

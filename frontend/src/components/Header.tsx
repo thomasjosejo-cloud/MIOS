@@ -17,7 +17,7 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-20 border-b-[0.5px] border-border bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between px-3">
+      <div className="mx-auto flex h-14 w-full max-w-[480px] items-center justify-between px-3">
         <span className="text-sm font-bold tracking-wide text-foreground">MIOS</span>
 
         <div className="flex items-center gap-4 text-xs font-medium">

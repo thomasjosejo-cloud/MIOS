@@ -93,7 +93,7 @@ export function ParticipationStatus({
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
         <div>
           <SectionLabel>Classification</SectionLabel>
           <div className="mt-1.5">
